@@ -5,7 +5,7 @@ from torch.utils.data import Dataset, DataLoader
 from utils.dsp import *
 from utils import hparams as hp
 from utils.files import unpickle_binary
-from utils.text import text_to_sequence
+from utils.text import text_to_sequence, phonemes
 from pathlib import Path
 import random
 
@@ -164,10 +164,12 @@ class TacoDataset(Dataset):
 
 class ForwardDataset(Dataset):
 
+
     def __init__(self, path: Path, dataset_ids, text_dict):
         self.path = path
         self.metadata = dataset_ids
         self.text_dict = text_dict
+        self.pause_index = phonemes.index('_')
 
     def __getitem__(self, index):
         item_id = self.metadata[index]
@@ -176,7 +178,22 @@ class ForwardDataset(Dataset):
         mel = np.load(self.path/'mel'/f'{item_id}.npy')
         mel_len = mel.shape[-1]
         dur = np.load(self.path/'alg'/f'{item_id}.npy')
-        return x, mel, item_id, mel_len, dur
+        x_expanded = []
+        dur_expanded = []
+        for i in range(len(x)):
+            if dur[i] <= 10:
+                x_expanded.append(x[i])
+                dur_expanded.append(dur[i])
+            else:
+                x_expanded.append(x[i])
+                res = dur[i] - 10
+                while res > 0:
+                    pause_dur = min(res, 10)
+                    x_expanded.append(self.pause_index)
+                    dur_expanded.append(pause_dur)
+                    res = res - pause_dur
+
+        return x_expanded, mel, item_id, mel_len, dur_expanded
 
     def __len__(self):
         return len(self.metadata)
