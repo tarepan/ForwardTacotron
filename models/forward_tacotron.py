@@ -191,6 +191,7 @@ class ForwardTacotron(nn.Module):
                             training=self.training)
             x_t = self.lin(x_t)
             out_mels.append(x_t.unsqueeze(1))
+            mel = x_t
 
         x = torch.cat(out_mels, dim=1)
         x = x.transpose(1, 2)
