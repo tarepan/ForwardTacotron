@@ -99,6 +99,7 @@ class ForwardTacotron(nn.Module):
 
         super().__init__()
         self.rnn_dim = rnn_dim
+        self.n_mels = n_mels
         self.embedding = nn.Embedding(num_chars, embed_dims)
         self.lr = LengthRegulator()
         self.dur_pred = DurationPredictor(embed_dims,
@@ -110,11 +111,11 @@ class ForwardTacotron(nn.Module):
                            channels=prenet_dims,
                            proj_channels=[prenet_dims, embed_dims],
                            num_highways=highways)
-        self.lstm = nn.LSTM(2 * prenet_dims,
+        self.rnn = nn.GRU(2 * prenet_dims + n_mels,
                             rnn_dim,
                             batch_first=True,
-                            bidirectional=True)
-        self.lin = torch.nn.Linear(2 * rnn_dim, n_mels)
+                            bidirectional=False)
+        self.lin = torch.nn.Linear(rnn_dim, n_mels)
         self.register_buffer('step', torch.zeros(1, dtype=torch.long))
         self.postnet = CBHG(K=postnet_k,
                             in_channels=n_mels,
@@ -125,6 +126,8 @@ class ForwardTacotron(nn.Module):
         self.post_proj = nn.Linear(2 * postnet_dims, n_mels, bias=False)
 
     def forward(self, x, mel, dur):
+        device = next(self.parameters()).device  # use same device as parameters
+
         if self.training:
             self.step += 1
 
@@ -135,7 +138,18 @@ class ForwardTacotron(nn.Module):
         x = x.transpose(1, 2)
         x = self.prenet(x)
         x = self.lr(x, dur)
-        x, _ = self.lstm(x)
+
+        bsize = mel.size(0)
+        start_mel = torch.zeros(bsize, 1, self.n_mels, device=device)
+        h = torch.zeros(1, bsize, self.rnn_dim, device=device)
+
+        mel = mel.transpose(1, 2)
+        mel = torch.cat([start_mel, mel[:, :-1, :]], dim=1)
+
+        x = self.pad(x, mel.size(1))
+        x = torch.cat([x, mel], dim=-1)
+
+        x, _ = self.rnn(x, h)
         x = F.dropout(x,
                       p=self.dropout,
                       training=self.training)
@@ -146,8 +160,7 @@ class ForwardTacotron(nn.Module):
         x_post = self.post_proj(x_post)
         x_post = x_post.transpose(1, 2)
 
-        x_post = self.pad(x_post, mel.size(2))
-        x = self.pad(x, mel.size(2))
+        #x_post = self.pad(x_post, mel.size(1))
         return x, x_post, dur_hat
 
     def generate(self, x, alpha=1.0):
@@ -162,13 +175,25 @@ class ForwardTacotron(nn.Module):
         x = x.transpose(1, 2)
         x = self.prenet(x)
         x = self.lr(x, dur)
-        x, _ = self.lstm(x)
-        x = F.dropout(x,
-                      p=self.dropout,
-                      training=self.training)
-        x = self.lin(x)
-        x = x.transpose(1, 2)
 
+        b_size = x.size(0)
+        h = torch.zeros(b_size, self.rnn_dim, device=device)
+        mel = torch.zeros(b_size, self.n_mels, device=device)
+        rnn = self.get_gru_cell(self.rnn)
+        out_mels = []
+
+        for i in range(x.size(1)):
+            x_t = x[:, i, :]
+            x_t = torch.cat([x_t, mel], dim=-1)
+            h = rnn(x_t, h)
+            x_t = F.dropout(h,
+                            p=self.dropout,
+                            training=self.training)
+            x_t = self.lin(x_t)
+            out_mels.append(x_t.unsqueeze(1))
+
+        x = torch.cat(out_mels, dim=1)
+        x = x.transpose(1, 2)
         x_post = self.postnet(x)
         x_post = self.post_proj(x_post)
         x_post = x_post.transpose(1, 2)
@@ -181,8 +206,8 @@ class ForwardTacotron(nn.Module):
         return x, x_post, dur
 
     def pad(self, x, max_len):
-        x = x[:, :, :max_len]
-        x = F.pad(x, [0, max_len - x.size(2), 0, 0], 'constant', 0.0)
+        x = x[:, :max_len, :]
+        x = F.pad(x, [0, 0, 0, max_len - x.size(1), 0, 0], 'constant', 0.0)
         return x
 
     def get_step(self):
@@ -204,3 +229,10 @@ class ForwardTacotron(nn.Module):
         with open(path, 'a') as f:
             print(msg, file=f)
 
+    def get_gru_cell(self, gru):
+        gru_cell = nn.GRUCell(gru.input_size, gru.hidden_size)
+        gru_cell.weight_hh.data = gru.weight_hh_l0.data
+        gru_cell.weight_ih.data = gru.weight_ih_l0.data
+        gru_cell.bias_hh.data = gru.bias_hh_l0.data
+        gru_cell.bias_ih.data = gru.bias_ih_l0.data
+        return gru_cell
