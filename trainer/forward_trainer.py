@@ -60,7 +60,7 @@ class ForwardTrainer:
                 model.train()
                 x, m, dur, lens = x.to(device), m.to(device), dur.to(device), lens.to(device)
 
-                m1_hat, m2_hat, dur_hat = model(x, m, dur)
+                m1_hat, m2_hat, dur_hat = model.forward_2(x, m, dur)
 
                 m1_loss = self.l1_loss(m1_hat, m, lens)
                 m2_loss = self.l1_loss(m2_hat, m, lens)

@@ -126,7 +126,6 @@ class ForwardTacotron(nn.Module):
         self.post_proj = nn.Linear(2 * postnet_dims, n_mels, bias=False)
         self.I = nn.Linear(2 * prenet_dims + n_mels, rnn_dim)
 
-
     def forward(self, x, mel, dur):
         device = next(self.parameters()).device  # use same device as parameters
 
@@ -163,6 +162,48 @@ class ForwardTacotron(nn.Module):
         x_post = x_post.transpose(1, 2)
 
         #x_post = self.pad(x_post, mel.size(1))
+        return x, x_post, dur_hat
+
+    def forward_2(self, x, mels, dur):
+        if self.training:
+            self.step += 1
+
+        device = next(self.parameters()).device  # use same device as parameters
+
+        x = self.embedding(x)
+        dur_hat = self.dur_pred(x)
+        dur_hat = dur_hat.squeeze()
+
+        x = x.transpose(1, 2)
+        x = self.prenet(x)
+        x = self.lr(x, dur)
+        x = self.pad(x, mels.size(2))
+
+        b_size = x.size(0)
+        h = torch.zeros(b_size, self.rnn_dim, device=device)
+        mel = torch.zeros(b_size, self.n_mels, device=device)
+        rnn = self.get_gru_cell(self.rnn)
+        out_mels = []
+
+        for i in range(x.size(1)):
+            x_t = x[:, i, :]
+            x_t = torch.cat([x_t, mel], dim=-1)
+            x_t = self.I(x_t)
+
+            h = rnn(x_t, h)
+            x_t = F.dropout(h,
+                            p=self.dropout,
+                            training=self.training)
+            x_t = self.lin(x_t)
+            out_mels.append(x_t.unsqueeze(1))
+            mel = x_t
+
+        x = torch.cat(out_mels, dim=1)
+        x = x.transpose(1, 2)
+        x_post = self.postnet(x)
+        x_post = self.post_proj(x_post)
+        x_post = x_post.transpose(1, 2)
+
         return x, x_post, dur_hat
 
     def generate(self, x, alpha=1.0):
