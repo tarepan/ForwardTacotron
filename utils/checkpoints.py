@@ -125,7 +125,7 @@ def restore_checkpoint(checkpoint_type: str, paths: Paths, model, gen_opti, disc
         s = 'latest'
 
     num_exist = sum(p.exists() for p in path_dict.values())
-    if num_exist == 2:
+    if num_exist == 3:
         # Checkpoint exists
         print(f'Restoring from {s} checkpoint...')
         print(f'Loading {s} weights: {path_dict["w"]}')
