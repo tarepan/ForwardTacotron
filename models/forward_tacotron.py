@@ -251,4 +251,4 @@ class ForwardGan(nn.Module):
             print(msg, file=f)
 
     def get_step(self):
-        return self.step.data.item()
+        return self.gen.get_step()
