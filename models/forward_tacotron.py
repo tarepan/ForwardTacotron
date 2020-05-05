@@ -40,6 +40,23 @@ class LengthRegulator(nn.Module):
         return y
 
 
+class PreNet(nn.Module):
+    def __init__(self, in_dims, fc1_dims=256, fc2_dims=128, dropout=0.5):
+        super().__init__()
+        self.fc1 = nn.Linear(in_dims, fc1_dims)
+        self.fc2 = nn.Linear(fc1_dims, fc2_dims)
+        self.p = dropout
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = F.relu(x)
+        x = F.dropout(x, self.p, training=self.training)
+        x = self.fc2(x)
+        x = F.relu(x)
+        x = F.dropout(x, self.p, training=self.training)
+        return x
+
+
 class DurationPredictor(nn.Module):
 
     def __init__(self, in_dims, conv_dims=256, rnn_dims=64, dropout=0.5):
@@ -115,6 +132,7 @@ class ForwardTacotron(nn.Module):
                             rnn_dim,
                             batch_first=True,
                             bidirectional=False)
+        self.pre_net = PreNet(n_mels, fc2_dims=n_mels)
         self.lin = torch.nn.Linear(rnn_dim, n_mels)
         self.register_buffer('step', torch.zeros(1, dtype=torch.long))
         self.postnet = CBHG(K=postnet_k,
@@ -147,6 +165,7 @@ class ForwardTacotron(nn.Module):
         mel = mel.transpose(1, 2)
         mel = torch.cat([start_mel, mel[:, :-1, :]], dim=1)
         x = self.pad(x, mel.size(1))
+        mel = self.pre_net(mel)
         x = torch.cat([x, mel], dim=-1)
         x = self.I(x)
 
@@ -226,6 +245,7 @@ class ForwardTacotron(nn.Module):
         out_mels = []
 
         for i in range(x.size(1)):
+            mel = self.pre_net(mel)
             x_t = x[:, i, :]
             x_t = torch.cat([x_t, mel], dim=-1)
             x_t = self.I(x_t)
