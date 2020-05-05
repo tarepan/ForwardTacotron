@@ -17,8 +17,10 @@ def get_checkpoint_paths(checkpoint_type: str, paths: Paths):
         checkpoint_path = paths.tts_checkpoints    
     elif checkpoint_type is 'forward':
         weights_path = paths.forward_latest_weights
-        optim_path = paths.forward_latest_optim
+        gen_opti_path = paths.forward_latest_gen_opti
+        disc_opti_path = paths.forward_latest_disc_opti
         checkpoint_path = paths.forward_checkpoints
+        return weights_path, gen_opti_path, disc_opti_path, checkpoint_path
     elif checkpoint_type is 'voc':
         weights_path = paths.voc_latest_weights
         optim_path = paths.voc_latest_optim
@@ -29,7 +31,7 @@ def get_checkpoint_paths(checkpoint_type: str, paths: Paths):
     return weights_path, optim_path, checkpoint_path
 
 
-def save_checkpoint(checkpoint_type: str, paths: Paths, model, optimizer, *,
+def save_checkpoint(checkpoint_type: str, paths: Paths, model, gen_opti, disc_opti, *,
         name=None, is_silent=False):
     """Saves the training session to disk.
 
@@ -47,7 +49,7 @@ def save_checkpoint(checkpoint_type: str, paths: Paths, model, optimizer, *,
         s = 'named' if is_named else 'latest'
         num_exist = sum(p.exists() for p in path_dict.values())
 
-        if num_exist not in (0,2):
+        if num_exist not in (0,3):
             # Checkpoint broken
             raise FileNotFoundError(
                 f'We expected either both or no files in the {s} checkpoint to '
@@ -62,24 +64,27 @@ def save_checkpoint(checkpoint_type: str, paths: Paths, model, optimizer, *,
 
         if not is_silent: print(f'Saving {s} weights: {path_dict["w"]}')
         model.save(path_dict['w'])
-        if not is_silent: print(f'Saving {s} optimizer state: {path_dict["o"]}')
-        torch.save(optimizer.state_dict(), path_dict['o'])
+        if not is_silent: print(f'Saving {s} optimizer state: {path_dict["o_gen"]}')
+        if not is_silent: print(f'Saving {s} optimizer state: {path_dict["o_disc"]}')
+        torch.save(gen_opti.state_dict(), path_dict['o_gen'])
+        torch.save(disc_opti.state_dict(), path_dict['o_disc'])
 
-    weights_path, optim_path, checkpoint_path = \
+    weights_path, gen_opti_path, disc_opti_path, checkpoint_path = \
         get_checkpoint_paths(checkpoint_type, paths)
 
-    latest_paths = {'w': weights_path, 'o': optim_path}
+    latest_paths = {'w': weights_path, 'o_gen': gen_opti_path, 'o_disc': disc_opti_path}
     helper(latest_paths, False)
 
     if name:
         named_paths = {
             'w': checkpoint_path/f'{name}_weights.pyt',
-            'o': checkpoint_path/f'{name}_optim.pyt',
+            'o_gen': checkpoint_path/f'{name}_gen_optim.pyt',
+            'o_disc': checkpoint_path/f'{name}_disc_optim.pyt',
         }
         helper(named_paths, True)
 
 
-def restore_checkpoint(checkpoint_type: str, paths: Paths, model, optimizer, *,
+def restore_checkpoint(checkpoint_type: str, paths: Paths, model, gen_opti, disc_opti, *,
         name=None, create_if_missing=False, device='cpu'):
     """Restores from a training session saved to disk.
 
@@ -101,19 +106,21 @@ def restore_checkpoint(checkpoint_type: str, paths: Paths, model, optimizer, *,
             `FileNotFoundError`.
     """
 
-    weights_path, optim_path, checkpoint_path = \
+    weights_path, gen_opti_path, disc_opti_path, checkpoint_path = \
         get_checkpoint_paths(checkpoint_type, paths)
 
     if name:
         path_dict = {
             'w': checkpoint_path/f'{name}_weights.pyt',
-            'o': checkpoint_path/f'{name}_optim.pyt',
+            'o_gen': checkpoint_path/f'{name}_gen_optim.pyt',
+            'o_disc': checkpoint_path/f'{name}_disc_optim.pyt',
         }
         s = 'named'
     else:
         path_dict = {
             'w': weights_path,
-            'o': optim_path
+            'o_gen': gen_opti_path,
+            'o_disc': disc_opti_path,
         }
         s = 'latest'
 
@@ -123,10 +130,12 @@ def restore_checkpoint(checkpoint_type: str, paths: Paths, model, optimizer, *,
         print(f'Restoring from {s} checkpoint...')
         print(f'Loading {s} weights: {path_dict["w"]}')
         model.load(path_dict['w'])
-        print(f'Loading {s} optimizer state: {path_dict["o"]}')
-        optimizer.load_state_dict(torch.load(path_dict['o'], map_location=device))
+        print(f'Loading {s} optimizer state: {path_dict["o_gen"]}')
+        print(f'Loading {s} optimizer state: {path_dict["o_disc"]}')
+        gen_opti.load_state_dict(torch.load(path_dict['o_gen'], map_location=device))
+        disc_opti.load_state_dict(torch.load(path_dict['o_disc'], map_location=device))
         print(f'Loaded model at step: {model.get_step()}')
     elif create_if_missing:
-        save_checkpoint(checkpoint_type, paths, model, optimizer, name=name, is_silent=False)
+        save_checkpoint(checkpoint_type, paths, model, gen_opti, disc_opti, name=name, is_silent=False)
     else:
         raise FileNotFoundError(f'The {s} checkpoint could not be found!')

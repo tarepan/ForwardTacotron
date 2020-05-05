@@ -14,6 +14,7 @@ from utils.checkpoints import save_checkpoint
 from utils.dataset import get_tts_datasets
 from utils.decorators import ignore_exception
 from utils.display import stream, simple_table, plot_mel
+from utils.distribution import MaskedBCE
 from utils.dsp import reconstruct_waveform, rescale_mel, np_now
 from utils.paths import Paths
 
@@ -24,8 +25,9 @@ class ForwardTrainer:
         self.paths = paths
         self.writer = SummaryWriter(log_dir=paths.forward_log, comment='v1')
         self.l1_loss = MaskedL1()
+        self.disc_loss = MaskedBCE()
 
-    def train(self, model: ForwardTacotron, optimizer: Optimizer) -> None:
+    def train(self, model, gen_opti, disc_opti) -> None:
         for i, session_params in enumerate(hp.forward_schedule, 1):
             lr, max_step, bs = session_params
             if model.get_step() < max_step:
@@ -34,10 +36,10 @@ class ForwardTrainer:
                 session = TTSSession(
                     index=i, r=1, lr=lr, max_step=max_step,
                     bs=bs, train_set=train_set, val_set=val_set)
-                self.train_session(model, optimizer, session)
+                self.train_session(model, gen_opti, disc_opti, session)
 
-    def train_session(self, model: ForwardTacotron,
-                      optimizer: Optimizer, session: TTSSession) -> None:
+    def train_session(self, model,
+                      gen_opti, disc_opti, session: TTSSession) -> None:
         current_step = model.get_step()
         training_steps = session.max_step - current_step
         total_iters = len(session.train_set)
@@ -46,7 +48,10 @@ class ForwardTrainer:
                       ('Batch Size', session.bs),
                       ('Learning Rate', session.lr)])
 
-        for g in optimizer.param_groups:
+        for g in gen_opti.param_groups:
+            g['lr'] = session.lr
+
+        for g in disc_opti.param_groups:
             g['lr'] = session.lr
 
         m_loss_avg = Averager()
@@ -55,41 +60,57 @@ class ForwardTrainer:
         device = next(model.parameters()).device  # use same device as model parameters
         for e in range(1, epochs + 1):
             for i, (x, m, ids, lens, dur) in enumerate(session.train_set, 1):
+                fake = torch.zeros((m.size(0), m.size(2))).to(device)
+                real = torch.ones((m.size(0), m.size(2))).to(device)
 
                 start = time.time()
                 model.train()
                 x, m, dur, lens = x.to(device), m.to(device), dur.to(device), lens.to(device)
 
-                m1_hat, m2_hat, dur_hat = model(x, m, dur)
+                m1_hat, m2_hat, dur_hat = model.gen(x, m, dur)
 
-                m1_loss = self.l1_loss(m1_hat, m, lens)
-                m2_loss = self.l1_loss(m2_hat, m, lens)
+                # train generator
+                model.zero_grad()
+                gen_opti.zero_grad()
+                d_fake = model.disc(m2_hat).squeeze()
+                d_loss_fake_real = self.disc_loss(d_fake, real, lens)
                 dur_loss = F.l1_loss(dur_hat, dur)
-
-                loss = m1_loss + m2_loss + dur_loss
-                optimizer.zero_grad()
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), hp.tts_clip_grad_norm)
-                optimizer.step()
-                m_loss_avg.add(m1_loss.item() + m2_loss.item())
+                g_loss = d_loss_fake_real + dur_loss
+                g_loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.gen.parameters(), 1.0)
+                gen_opti.step()
                 dur_loss_avg.add(dur_loss.item())
                 step = model.get_step()
                 k = step // 1000
 
+                m2_hat = m2_hat.detach()
+                model.disc.zero_grad()
+                d_fake = model.disc(m2_hat).squeeze()
+                d_real = model.disc(m).squeeze()
+                d_loss_fake = self.disc_loss(d_fake, fake, lens)
+                d_loss_real = self.disc_loss(d_real, real, lens)
+                d_loss = d_loss_fake + d_loss_real
+                d_loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.disc.parameters(), 1.0)
+                disc_opti.step()
+
+
                 duration_avg.add(time.time() - start)
                 speed = 1. / duration_avg.get()
-                msg = f'| Epoch: {e}/{epochs} ({i}/{total_iters}) | Mel Loss: {m_loss_avg.get():#.4} ' \
+                msg = f'| Epoch: {e}/{epochs} ({i}/{total_iters}) | Gen Loss {d_loss_fake_real.item():#.4}' \
                       f'| Dur Loss: {dur_loss_avg.get():#.4} | {speed:#.2} steps/s | Step: {k}k | '
 
                 if step % hp.forward_checkpoint_every == 0:
                     ckpt_name = f'forward_step{k}K'
-                    save_checkpoint('forward', self.paths, model, optimizer,
+                    save_checkpoint('forward', self.paths, model, gen_opti, disc_opti,
                                     name=ckpt_name, is_silent=True)
 
                 if step % hp.forward_plot_every == 0:
                     self.generate_plots(model, session)
 
-                self.writer.add_scalar('Mel_Loss/train', m1_loss + m2_loss, model.get_step())
+                self.writer.add_scalar('Gan/gen', d_loss_fake_real, model.get_step())
+                self.writer.add_scalar('Gan/disc_fake', d_loss_fake, model.get_step())
+                self.writer.add_scalar('Gan/disc_real', d_loss_real, model.get_step())
                 self.writer.add_scalar('Duration_Loss/train', dur_loss, model.get_step())
                 self.writer.add_scalar('Params/batch_size', session.bs, model.get_step())
                 self.writer.add_scalar('Params/learning_rate', session.lr, model.get_step())
@@ -128,7 +149,7 @@ class ForwardTrainer:
         x, m, ids, lens, dur = session.val_sample
         x, m, dur = x.to(device), m.to(device), dur.to(device)
 
-        m1_hat, m2_hat, dur_hat = model(x, m, dur)
+        m1_hat, m2_hat, dur_hat = model.gen(x, m, dur)
         m1_hat = np_now(m1_hat)[0, :600, :]
         m2_hat = np_now(m2_hat)[0, :600, :]
         m = np_now(m)[0, :600, :]
@@ -152,7 +173,7 @@ class ForwardTrainer:
             tag='Ground_Truth_Aligned/postnet_wav', snd_tensor=m2_hat_wav,
             global_step=model.step, sample_rate=hp.sample_rate)
 
-        m1_hat, m2_hat, dur_hat = model.generate(x[0].tolist())
+        m1_hat, m2_hat, dur_hat = model.gen.generate(x[0].tolist())
         m1_hat, m2_hat = rescale_mel(m1_hat), rescale_mel(m2_hat)
         m1_hat_fig = plot_mel(m1_hat)
         m2_hat_fig = plot_mel(m2_hat)

@@ -7,8 +7,8 @@ data_path = 'data/'
 
 # model ids are separate - that way you can use a new tts with an old wavernn and vice versa
 # NB: expect undefined behaviour if models were trained on different DSP settings
-voc_model_id = 'ljspeech_raw'
-tts_model_id = 'ljspeech_tts'
+voc_model_id = 'gan_raw'
+tts_model_id = 'gan_tts'
 
 # set this to True if you are only interested in WaveRNN
 ignore_tts = False
@@ -80,8 +80,8 @@ tts_lstm_dims = 512
 tts_postnet_K = 8
 tts_num_highways = 4
 tts_dropout = 0.5
-language = 'en'
-tts_cleaner_name = 'english_cleaners'
+language = 'de'
+tts_cleaner_name = 'basic_cleaners'
 tts_stop_threshold = -3.4           # Value below which audio generation ends.
                                     # For example, for a range of [-4, 4], this
                                     # will terminate the sequence at the first
@@ -120,8 +120,8 @@ forward_dropout = 0.1
 
 # Training
 
-forward_schedule = [(1e-3, 10_000,  32),    # progressive training schedule
-                    (1e-4, 300_000,  32)]   # (lr, step, batch_size)
+forward_schedule = [(1e-3, 10_000,  2),    # progressive training schedule
+                    (1e-4, 300_000,  2)]   # (lr, step, batch_size)
 
 forward_max_mel_len = 1250              # if you have a couple of extremely long spectrograms you might want to use this
 forward_clip_grad_norm = 1.0            # clips the gradient norm to prevent explosion - set to None if not needed

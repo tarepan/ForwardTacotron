@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch
 import torch.nn.functional as F
 
+from models.dicriminator import Discriminator
 from models.tacotron import CBHG
 
 
@@ -204,3 +205,50 @@ class ForwardTacotron(nn.Module):
         with open(path, 'a') as f:
             print(msg, file=f)
 
+
+class ForwardGan(nn.Module):
+
+    def __init__(self,
+                 embed_dims,
+                 num_chars,
+                 durpred_conv_dims,
+                 durpred_rnn_dims,
+                 durpred_dropout,
+                 rnn_dim,
+                 prenet_k,
+                 prenet_dims,
+                 postnet_k,
+                 postnet_dims,
+                 highways,
+                 dropout,
+                 n_mels):
+        super().__init__()
+        self.register_buffer('step', torch.zeros(1, dtype=torch.long))
+
+        self.gen = ForwardTacotron(embed_dims=embed_dims, num_chars=num_chars,
+                                   durpred_rnn_dims=durpred_rnn_dims,
+                                   durpred_dropout=durpred_dropout, rnn_dim=rnn_dim,
+                                   prenet_k=prenet_k, prenet_dims=prenet_dims, postnet_k=postnet_k,
+                                   postnet_dims=postnet_dims,
+                                   highways=highways, dropout=dropout, n_mels=n_mels, durpred_conv_dims=durpred_conv_dims)
+
+        self.disc = Discriminator(n_mels, 512)
+
+    def load(self, path: Union[str, Path]):
+        # Use device of model params as location for loaded state
+        device = next(self.parameters()).device
+        state_dict = torch.load(path, map_location=device)
+        self.load_state_dict(state_dict, strict=False)
+
+    def save(self, path: Union[str, Path]):
+        # No optimizer argument because saving a model should not include data
+        # only relevant in the training process - it should only be properties
+        # of the model itself. Let caller take care of saving optimzier state.
+        torch.save(self.state_dict(), path)
+
+    def log(self, path, msg):
+        with open(path, 'a') as f:
+            print(msg, file=f)
+
+    def get_step(self):
+        return self.step.data.item()

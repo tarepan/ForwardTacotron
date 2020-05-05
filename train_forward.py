@@ -6,7 +6,7 @@ import torch
 from torch import optim
 from torch.utils.data.dataloader import DataLoader
 
-from models.forward_tacotron import ForwardTacotron
+from models.forward_tacotron import ForwardTacotron, ForwardGan
 from models.tacotron import Tacotron
 from trainer.forward_trainer import ForwardTrainer
 from utils import hparams as hp
@@ -65,7 +65,7 @@ if __name__ == '__main__':
 
     # Instantiate Forward TTS Model
     print('\nInitialising Forward TTS Model...\n')
-    model = ForwardTacotron(embed_dims=hp.forward_embed_dims,
+    model = ForwardGan(embed_dims=hp.forward_embed_dims,
                             num_chars=len(phonemes),
                             durpred_rnn_dims=hp.forward_durpred_rnn_dims,
                             durpred_conv_dims=hp.forward_durpred_conv_dims,
@@ -83,8 +83,9 @@ if __name__ == '__main__':
     params = sum([np.prod(p.size()) for p in model_parameters])
     print(f'num params {params}')
 
-    optimizer = optim.Adam(model.parameters())
-    restore_checkpoint('forward', paths, model, optimizer, create_if_missing=True)
+    gen_opti = optim.Adam(model.gen.parameters())
+    disc_opti = optim.Adam(model.disc.parameters())
+    restore_checkpoint('forward', paths, model, gen_opti, disc_opti, create_if_missing=True)
 
     if force_gta:
         print('Creating Ground Truth Aligned Dataset...\n')
@@ -93,5 +94,5 @@ if __name__ == '__main__':
         print('\n\nYou can now train WaveRNN on GTA features - use python train_wavernn.py --gta\n')
     else:
         trainer = ForwardTrainer(paths)
-        trainer.train(model, optimizer)
+        trainer.train(model, gen_opti, disc_opti)
 
