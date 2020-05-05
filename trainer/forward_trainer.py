@@ -75,7 +75,8 @@ class ForwardTrainer:
                 d_fake = model.disc(m2_hat).squeeze()
                 d_loss_fake_real = self.disc_loss(d_fake, real, lens)
                 dur_loss = F.l1_loss(dur_hat, dur)
-                g_loss = d_loss_fake_real + dur_loss
+                m_loss = F.l1_loss(m1_hat, m) + F.l1_loss(m2_hat, m)
+                g_loss = d_loss_fake_real + dur_loss + m_loss
                 g_loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.gen.parameters(), 1.0)
                 gen_opti.step()
@@ -94,10 +95,10 @@ class ForwardTrainer:
                 torch.nn.utils.clip_grad_norm_(model.disc.parameters(), 1.0)
                 disc_opti.step()
 
-
                 duration_avg.add(time.time() - start)
                 speed = 1. / duration_avg.get()
-                msg = f'| Epoch: {e}/{epochs} ({i}/{total_iters}) | Gen Loss {d_loss_fake_real.item():#.4}' \
+                msg = f'| Epoch: {e}/{epochs} ({i}/{total_iters}) | Mel Loss {m_loss.item():#.4} ' \
+                      f'| Gen Loss {d_loss_fake_real.item():#.4}' \
                       f'| Dur Loss: {dur_loss_avg.get():#.4} | {speed:#.2} steps/s | Step: {k}k | '
 
                 if step % hp.forward_checkpoint_every == 0:
