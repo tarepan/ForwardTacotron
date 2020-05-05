@@ -112,6 +112,7 @@ class ForwardTrainer:
                 self.writer.add_scalar('Gan/gen', d_loss_fake_real, model.get_step())
                 self.writer.add_scalar('Gan/disc_fake', d_loss_fake, model.get_step())
                 self.writer.add_scalar('Gan/disc_real', d_loss_real, model.get_step())
+                self.writer.add_scalar('Mel_Loss/train', m_loss, model.get_step())
                 self.writer.add_scalar('Duration_Loss/train', dur_loss, model.get_step())
                 self.writer.add_scalar('Params/batch_size', session.bs, model.get_step())
                 self.writer.add_scalar('Params/learning_rate', session.lr, model.get_step())
