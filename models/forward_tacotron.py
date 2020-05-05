@@ -265,7 +265,7 @@ class ForwardTacotron(nn.Module):
             h1 = rnn_1(x_t, h1)
             x_t = x_t + h1
 
-            h1 = rnn_2(x_t, h2)
+            h2 = rnn_2(x_t, h2)
             x_t = x_t + h2
 
             x_t = F.dropout(x_t,
