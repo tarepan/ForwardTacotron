@@ -128,7 +128,11 @@ class ForwardTacotron(nn.Module):
                            channels=prenet_dims,
                            proj_channels=[prenet_dims, embed_dims],
                            num_highways=highways)
-        self.rnn = nn.GRU(rnn_dim,
+        self.rnn_1 = nn.GRU(rnn_dim,
+                            rnn_dim,
+                            batch_first=True,
+                            bidirectional=False)
+        self.rnn_2 = nn.GRU(rnn_dim,
                             rnn_dim,
                             batch_first=True,
                             bidirectional=False)
@@ -160,7 +164,8 @@ class ForwardTacotron(nn.Module):
 
         bsize = mel.size(0)
         start_mel = torch.zeros(bsize, 1, self.n_mels, device=device)
-        h = torch.zeros(1, bsize, self.rnn_dim, device=device)
+        h1 = torch.zeros(1, bsize, self.rnn_dim, device=device)
+        h2 = torch.zeros(1, bsize, self.rnn_dim, device=device)
 
         mel = mel.transpose(1, 2)
         mel = torch.cat([start_mel, mel[:, :-1, :]], dim=1)
@@ -169,7 +174,12 @@ class ForwardTacotron(nn.Module):
         x = torch.cat([x, mel], dim=-1)
         x = self.I(x)
 
-        x, _ = self.rnn(x, h)
+        res, _ = self.rnn_1(x, h1)
+        x = x + res
+
+        res, _ = self.rnn_2(x, h2)
+        x = x + res
+
         x = F.dropout(x,
                       p=self.dropout,
                       training=self.training)
@@ -239,9 +249,11 @@ class ForwardTacotron(nn.Module):
         x = self.lr(x, dur)
 
         b_size = x.size(0)
-        h = torch.zeros(b_size, self.rnn_dim, device=device)
+        h1 = torch.zeros(b_size, self.rnn_dim, device=device)
+        h2 = torch.zeros(b_size, self.rnn_dim, device=device)
         mel = torch.zeros(b_size, self.n_mels, device=device)
-        rnn = self.get_gru_cell(self.rnn)
+        rnn_1 = self.get_gru_cell(self.rnn_1)
+        rnn_2 = self.get_gru_cell(self.rnn_2)
         out_mels = []
 
         for i in range(x.size(1)):
@@ -250,10 +262,16 @@ class ForwardTacotron(nn.Module):
             x_t = torch.cat([x_t, mel], dim=-1)
             x_t = self.I(x_t)
 
-            h = rnn(x_t, h)
-            x_t = F.dropout(h,
+            h1 = rnn_1(x_t, h1)
+            x_t = x_t + h1
+
+            h1 = rnn_2(x_t, h2)
+            x_t = x_t + h2
+
+            x_t = F.dropout(x_t,
                             p=self.dropout,
                             training=self.training)
+
             x_t = self.lin(x_t)
             out_mels.append(x_t.unsqueeze(1))
             mel = x_t
