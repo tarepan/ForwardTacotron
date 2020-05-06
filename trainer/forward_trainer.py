@@ -96,7 +96,7 @@ class ForwardTrainer:
                 if step % hp.forward_plot_every == 0:
                     self.generate_plots(model, session)
 
-                self.writer.add_scalar('Mel_Loss/train', m1_loss + m2_loss, model.get_step())
+                self.writer.add_scalar('Mel_Loss/train', m1_loss + m2_loss + m1_loss_2 +m2_loss_2, model.get_step())
                 self.writer.add_scalar('Duration_Loss/train', dur_loss, model.get_step())
                 self.writer.add_scalar('Params/batch_size', session.bs, model.get_step())
                 self.writer.add_scalar('Params/learning_rate', session.lr, model.get_step())
