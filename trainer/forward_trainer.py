@@ -91,7 +91,7 @@ class ForwardTrainer:
                 k = step // 1000
 
                 m2_hat = m2_hat.detach()
-                model.disc.zero_grad()
+                model.zero_grad()
                 disc_opti.zero_grad()
                 d_fake, d_fake_feat = model.disc(m2_hat, x_out)
                 d_real, d_fake_feat = model.disc(m, x_out)
