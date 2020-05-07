@@ -70,6 +70,7 @@ class ForwardTrainer:
                 x, m, dur, lens = x.to(device), m.to(device), dur.to(device), lens.to(device)
 
                 m1_hat, m2_hat, dur_hat, x_out = model.gen(x, m, dur)
+
                 # train generator
                 model.zero_grad()
                 gen_opti.zero_grad()
@@ -81,13 +82,17 @@ class ForwardTrainer:
 
                 dur_loss = F.l1_loss(dur_hat, dur)
                 m_loss = F.l1_loss(m2_hat, m)
-                g_loss = d_loss_fake_real + dur_loss + 10. * d_loss_feature + m_loss
+                g_loss = d_loss_fake_real + dur_loss + 10. * d_loss_feature + 0.* m_loss
                 g_loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.gen.parameters(), 1.0)
                 gen_opti.step()
                 dur_loss_avg.add(dur_loss.item())
                 step = model.get_step()
                 k = step // 1000
+
+                # train discriminator
+                fake = torch.ones((m.size(0), m.size(2))).to(device) * 0.1
+                real = torch.ones((m.size(0), m.size(2))).to(device) * 0.9
 
                 m2_hat = m2_hat.detach()
                 model.zero_grad()
