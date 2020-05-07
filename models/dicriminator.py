@@ -12,7 +12,7 @@ class Discriminator(torch.nn.Module):
     def forward(self, x, x_out):
         x = x.transpose(1, 2)
         x = torch.cat([x, x_out], dim=-1)
-        x, _ = self.rnn(x)
-        x = self.lin(x)
+        x_feat, _ = self.rnn(x)
+        x = self.lin(x_feat)
         #x = torch.sigmoid(x)
-        return x
+        return x.squeeze(), x_feat.squeeze()
