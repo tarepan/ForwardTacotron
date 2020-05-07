@@ -115,7 +115,8 @@ class ForwardTrainer:
                 if step % hp.forward_plot_every == 0:
                     self.generate_plots(model, session)
 
-                self.writer.add_scalar('Gan/gen', d_loss_fake_real, model.get_step())
+                self.writer.add_scalar('Gan/gen_fake_real', d_loss_fake_real, model.get_step())
+                self.writer.add_scalar('Gan/gen_feat_match', d_loss_feature, model.get_step())
                 self.writer.add_scalar('Gan/disc_fake', d_loss_fake, model.get_step())
                 self.writer.add_scalar('Gan/disc_real', d_loss_real, model.get_step())
                 self.writer.add_scalar('Mel_Loss/train', m_loss, model.get_step())
