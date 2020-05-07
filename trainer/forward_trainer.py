@@ -67,16 +67,16 @@ class ForwardTrainer:
                 model.train()
                 x, m, dur, lens = x.to(device), m.to(device), dur.to(device), lens.to(device)
 
-                m1_hat, m2_hat, dur_hat = model.gen(x, m, dur)
+                m1_hat, m2_hat, dur_hat, x_out = model.gen(x, m, dur)
 
                 # train generator
                 model.zero_grad()
                 gen_opti.zero_grad()
-                d_fake = model.disc(m2_hat).squeeze()
+                d_fake = model.disc(m2_hat, x_out).squeeze()
                 d_loss_fake_real = self.disc_loss(d_fake, real, lens)
                 dur_loss = F.l1_loss(dur_hat, dur)
                 m_loss = F.l1_loss(m1_hat, m) + F.l1_loss(m2_hat, m)
-                g_loss = d_loss_fake_real + dur_loss + m_loss
+                g_loss = d_loss_fake_real + dur_loss
                 g_loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.gen.parameters(), 1.0)
                 gen_opti.step()
@@ -86,8 +86,8 @@ class ForwardTrainer:
 
                 m2_hat = m2_hat.detach()
                 model.disc.zero_grad()
-                d_fake = model.disc(m2_hat).squeeze()
-                d_real = model.disc(m).squeeze()
+                d_fake = model.disc(m2_hat, x_out).squeeze()
+                d_real = model.disc(m, x_out).squeeze()
                 d_loss_fake = self.disc_loss(d_fake, fake, lens)
                 d_loss_real = self.disc_loss(d_real, real, lens)
                 d_loss = d_loss_fake + d_loss_real
@@ -151,7 +151,7 @@ class ForwardTrainer:
         x, m, ids, lens, dur = session.val_sample
         x, m, dur = x.to(device), m.to(device), dur.to(device)
 
-        m1_hat, m2_hat, dur_hat = model.gen(x, m, dur)
+        m1_hat, m2_hat, dur_hat, x_out = model.gen(x, m, dur)
         m1_hat = np_now(m1_hat)[0, :600, :]
         m2_hat = np_now(m2_hat)[0, :600, :]
         m = np_now(m)[0, :600, :]

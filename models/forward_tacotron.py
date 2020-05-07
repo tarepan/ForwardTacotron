@@ -136,6 +136,10 @@ class ForwardTacotron(nn.Module):
         x = x.transpose(1, 2)
         x = self.prenet(x)
         x = self.lr(x, dur)
+
+        x_out = x.detach().transpose(1, 2)
+        x_out = self.pad(x_out, mel.size(2)).transpose(1, 2)
+
         x, _ = self.lstm(x)
         x = F.dropout(x,
                       p=self.dropout,
@@ -149,7 +153,7 @@ class ForwardTacotron(nn.Module):
 
         x_post = self.pad(x_post, mel.size(2))
         x = self.pad(x, mel.size(2))
-        return x, x_post, dur_hat
+        return x, x_post, dur_hat, x_out
 
     def generate(self, x, alpha=1.0):
         self.eval()
