@@ -81,7 +81,7 @@ class ForwardTrainer:
 
                 dur_loss = F.l1_loss(dur_hat, dur)
                 m_loss = F.l1_loss(m1_hat, m) + F.l1_loss(m2_hat, m)
-                g_loss = d_loss_fake_real + dur_loss + 10. * d_loss_feature
+                g_loss = d_loss_fake_real + dur_loss + 10. * d_loss_feature + m_loss
                 g_loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.gen.parameters(), 1.0)
                 gen_opti.step()
