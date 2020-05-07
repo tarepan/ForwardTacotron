@@ -70,7 +70,6 @@ class ForwardTrainer:
                 x, m, dur, lens = x.to(device), m.to(device), dur.to(device), lens.to(device)
 
                 m1_hat, m2_hat, dur_hat, x_out = model.gen(x, m, dur)
-
                 # train generator
                 model.zero_grad()
                 gen_opti.zero_grad()
@@ -167,9 +166,9 @@ class ForwardTrainer:
         m2_hat_fig = plot_mel(m2_hat)
         m_fig = plot_mel(m)
 
-        self.writer.add_figure('Ground_Truth_Aligned/target', m_fig, model.step)
-        self.writer.add_figure('Ground_Truth_Aligned/linear', m1_hat_fig, model.step)
-        self.writer.add_figure('Ground_Truth_Aligned/postnet', m2_hat_fig, model.step)
+        self.writer.add_figure('Ground_Truth_Aligned/target', m_fig, model.get_step())
+        self.writer.add_figure('Ground_Truth_Aligned/linear', m1_hat_fig, model.get_step())
+        self.writer.add_figure('Ground_Truth_Aligned/postnet', m2_hat_fig, model.get_step())
 
         m1_hat, m2_hat, m = rescale_mel(m1_hat), rescale_mel(m2_hat), rescale_mel(m)
         m2_hat_wav = reconstruct_waveform(m2_hat)
@@ -187,9 +186,9 @@ class ForwardTrainer:
         m1_hat_fig = plot_mel(m1_hat)
         m2_hat_fig = plot_mel(m2_hat)
 
-        self.writer.add_figure('Generated/target', m_fig, model.step)
-        self.writer.add_figure('Generated/linear', m1_hat_fig, model.step)
-        self.writer.add_figure('Generated/postnet', m2_hat_fig, model.step)
+        self.writer.add_figure('Generated/target', m_fig, model.get_step())
+        self.writer.add_figure('Generated/linear', m1_hat_fig, model.get_step())
+        self.writer.add_figure('Generated/postnet', m2_hat_fig, model.get_step())
 
         m2_hat_wav = reconstruct_waveform(m2_hat)
 

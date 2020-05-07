@@ -128,7 +128,6 @@ class ForwardTacotron(nn.Module):
     def forward(self, x, mel, dur):
         if self.training:
             self.step += 1
-
         x = self.embedding(x)
         dur_hat = self.dur_pred(x)
         dur_hat = dur_hat.squeeze()
