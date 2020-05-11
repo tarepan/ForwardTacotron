@@ -23,5 +23,5 @@ class Discriminator(torch.nn.Module):
         #x = x_feat_1.transpose_(1, 2)
         #x_feat_2 = self.postnet(x)
         #x = F.dropout(x_feat_2, p=0.1, training=True)
-        x = self.lin(x)
+        x = self.lin(x_feat_1)
         return x.squeeze(), x_feat_1.squeeze().detach(), x_feat_1.squeeze().detach()
