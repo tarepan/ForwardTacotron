@@ -93,8 +93,8 @@ class ForwardTrainer:
                 k = step // 1000
 
                 # train discriminator
-                fake = torch.ones((m.size(0), m.size(2))).to(device)
-                real = torch.ones((m.size(0), m.size(2))).to(device)
+                fake = torch.ones((m.size(0), m.size(2))).to(device) * 0.1
+                real = torch.ones((m.size(0), m.size(2))).to(device) * 0.9
 
                 m2_hat = m2_hat.detach()
                 model.zero_grad()
