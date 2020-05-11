@@ -74,12 +74,13 @@ class ForwardTrainer:
                 # train generator
                 model.zero_grad()
                 gen_opti.zero_grad()
-                d_fake, d_fake_feat = model.disc(m2_hat, x_out)
-                d_real, d_real_feat = model.disc(m, x_out)
+                d_fake, d_fake_feat_1, d_fake_feat_2 = model.disc(m2_hat, x_out)
+                d_real, d_real_feat_1, d_real_feat_2 = model.disc(m, x_out)
 
                 d_loss_fake_real = self.disc_loss(d_fake, real, lens)
-                d_loss_feature = torch.mean(torch.abs(d_fake_feat - d_real_feat))
-
+                d_loss_feature = \
+                    torch.mean(torch.abs(d_fake_feat_1 - d_real_feat_1)) \
+                    + torch.mean(torch.abs(d_fake_feat_2 - d_real_feat_2))
                 dur_loss = F.l1_loss(dur_hat, dur)
                 m_loss = F.l1_loss(m2_hat, m)
                 g_loss = d_loss_fake_real + dur_loss + 10. * d_loss_feature + 0.* m_loss
@@ -91,14 +92,14 @@ class ForwardTrainer:
                 k = step // 1000
 
                 # train discriminator
-                fake = torch.ones((m.size(0), m.size(2))).to(device) * 0.1
-                real = torch.ones((m.size(0), m.size(2))).to(device) * 0.9
+                fake = torch.ones((m.size(0), m.size(2))).to(device)
+                real = torch.ones((m.size(0), m.size(2))).to(device)
 
                 m2_hat = m2_hat.detach()
                 model.zero_grad()
                 disc_opti.zero_grad()
-                d_fake, d_fake_feat = model.disc(m2_hat, x_out)
-                d_real, d_fake_feat = model.disc(m, x_out)
+                d_fake, _, _ = model.disc(m2_hat, x_out)
+                d_real, _, _ = model.disc(m, x_out)
                 d_loss_fake = self.disc_loss(d_fake, fake, lens)
                 d_loss_real = self.disc_loss(d_real, real, lens)
                 d_loss = d_loss_fake + d_loss_real

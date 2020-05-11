@@ -120,7 +120,7 @@ forward_dropout = 0.1
 
 # Training
 
-forward_schedule = [(1e-3, 10_000,  32),    # progressive training schedule
+forward_schedule = [(1e-3, 1_000,  32),    # progressive training schedule
                     (1e-4, 300_000,  32)]   # (lr, step, batch_size)
 
 forward_max_mel_len = 1250              # if you have a couple of extremely long spectrograms you might want to use this
