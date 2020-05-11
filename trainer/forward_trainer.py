@@ -99,8 +99,8 @@ class ForwardTrainer:
                 m2_hat = m2_hat.detach()
                 model.zero_grad()
                 disc_opti.zero_grad()
-                d_fake, _, _ = model.disc(m2_hat, x_out)
-                d_real, _, _ = model.disc(m, x_out)
+                d_fake, d_fake_feat_1, d_fake_feat_2 = model.disc(m2_hat, x_out)
+                d_real, d_real_feat_1, d_real_feat_2 = model.disc(m, x_out)
                 d_loss_fake = self.disc_loss(d_fake, fake, lens)
                 d_loss_real = self.disc_loss(d_real, real, lens)
                 d_loss = d_loss_fake + d_loss_real
