@@ -148,8 +148,8 @@ class ForwardTacotron(nn.Module):
             #ResStack(256, layers=4),
             #ResStack(256, layers=4),
             #ResStack(256, layers=4),
-            nn.ReflectionPad1d(3),
-            nn.utils.weight_norm(nn.Conv1d(256, n_mels, kernel_size=7, stride=1)),
+            #nn.ReflectionPad1d(3),
+            nn.utils.weight_norm(nn.Conv1d(256, n_mels, kernel_size=7, stride=1, padding=3)),
         )
 
     def forward(self, x, mel, dur):
@@ -190,7 +190,7 @@ class ForwardTacotron(nn.Module):
 
     def pad(self, x, max_len):
         x = x[:, :, :max_len]
-        x = F.pad(x, [0, max_len - x.size(2), 0, 0], 'constant', -4.0)
+        x = F.pad(x, [0, max_len - x.size(2), 0, 0], 'constant')
         return x
 
     def get_step(self):
