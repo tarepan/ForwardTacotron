@@ -76,7 +76,7 @@ class ForwardTrainer:
 
                 loss_g = 0.0
 
-                loss_g += 100.*torch.mean(torch.mean(torch.pow(score_fake - 1.0, 2), dim=[1, 2]))
+                loss_g += 10.*torch.mean(torch.mean(torch.pow(score_fake - 1.0, 2), dim=[1, 2]))
                 for feat_f, feat_r in zip(feats_fake, feats_real):
                     loss_g += 10. * torch.mean(torch.abs(feat_f - feat_r))
 
@@ -103,8 +103,8 @@ class ForwardTrainer:
                 _, score_real = model.disc(m)
                 loss_d = 0.0
 
-                loss_d += 100.*torch.mean(torch.mean(torch.pow(score_real - 1.0, 2), dim=[1, 2]))
-                loss_d += 100.*torch.mean(torch.mean(torch.pow(score_fake, 2), dim=[1, 2]))
+                loss_d += 10.*torch.mean(torch.mean(torch.pow(score_real - 1.0, 2), dim=[1, 2]))
+                loss_d += 10.*torch.mean(torch.mean(torch.pow(score_fake, 2), dim=[1, 2]))
 
                 loss_d.backward()
                 disc_opti.step()
