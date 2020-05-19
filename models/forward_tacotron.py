@@ -239,7 +239,7 @@ class ForwardGan(nn.Module):
                                    postnet_dims=postnet_dims,
                                    highways=highways, dropout=dropout, n_mels=n_mels, durpred_conv_dims=durpred_conv_dims)
 
-        self.disc = Discriminator(n_mels, 16)
+        self.disc = Discriminator(n_mels)
 
     def load(self, path: Union[str, Path]):
         # Use device of model params as location for loaded state

@@ -60,9 +60,6 @@ class ForwardTrainer:
         device = next(model.parameters()).device  # use same device as model parameters
         for e in range(1, epochs + 1):
             for i, (x, m, ids, lens, dur) in enumerate(session.train_set, 1):
-                fake = torch.zeros((m.size(0), m.size(2))).to(device)
-                real = torch.ones((m.size(0), m.size(2))).to(device)
-
                 start = time.time()
                 model.train()
                 model.gen.train()
@@ -74,41 +71,48 @@ class ForwardTrainer:
                 # train generator
                 model.zero_grad()
                 gen_opti.zero_grad()
-                d_fake, d_fake_feat = model.disc(m2_hat, x_out)
-                d_real, d_real_feat = model.disc(m, x_out)
+                feats_fake, score_fake = model.disc(m2_hat)
+                feats_real, score_real = model.disc(m)
 
-                d_loss_fake_real = self.disc_loss(d_fake, real, lens)
-                d_loss_feature = torch.mean(torch.abs(d_fake_feat - d_real_feat))
+                loss_g = 0.0
+                loss_g += torch.mean(torch.sum(torch.pow(score_fake - 1.0, 2), dim=[1, 2]))
+                for feat_f, feat_r in zip(feats_fake, feats_real):
+                    loss_g += 10. * torch.mean(torch.abs(feat_f - feat_r))
+
                 dur_loss = F.l1_loss(dur_hat, dur)
                 m_loss = F.l1_loss(m2_hat, m)
-                g_loss = 0. * d_loss_fake_real + dur_loss + 0. * d_loss_feature + 1.* m_loss
-                g_loss.backward()
+
+                #loss_g += 0.*m_loss
+                loss_g += dur_loss
+
+                loss_g.backward()
+
                 torch.nn.utils.clip_grad_norm_(model.gen.parameters(), 1.0)
                 gen_opti.step()
+
                 dur_loss_avg.add(dur_loss.item())
                 step = model.get_step()
                 k = step // 1000
 
                 # train discriminator
-                fake = torch.ones((m.size(0), m.size(2))).to(device) * 0.1
-                real = torch.ones((m.size(0), m.size(2))).to(device) * 0.9
-
                 m2_hat = m2_hat.detach()
-                model.zero_grad()
+                loss_d_sum = 0.0
                 disc_opti.zero_grad()
-                d_fake, d_fake_feat = model.disc(m2_hat, x_out)
-                d_real, d_fake_feat = model.disc(m, x_out)
-                d_loss_fake = self.disc_loss(d_fake, fake, lens)
-                d_loss_real = self.disc_loss(d_real, real, lens)
-                d_loss = d_loss_fake + d_loss_real
-                d_loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.disc.parameters(), 1.0)
+                _, score_fake = model.disc(m2_hat)
+                _, score_real = model.disc(m)
+                loss_d = 0.0
+
+                loss_d += torch.mean(torch.sum(torch.pow(score_real - 1.0, 2), dim=[1, 2]))
+                loss_d += torch.mean(torch.sum(torch.pow(score_fake, 2), dim=[1, 2]))
+
+                loss_d.backward()
                 disc_opti.step()
+                loss_d_sum += loss_d
 
                 duration_avg.add(time.time() - start)
                 speed = 1. / duration_avg.get()
                 msg = f'| Epoch: {e}/{epochs} ({i}/{total_iters}) | Mel Loss {m_loss.item():#.4} ' \
-                      f'| Gen Loss {d_loss_fake_real.item():#.4}' \
+                      f'| Gen Loss {loss_g.item():#.4}' \
                       f'| Dur Loss: {dur_loss_avg.get():#.4} | {speed:#.2} steps/s | Step: {k}k | '
 
                 if step % hp.forward_checkpoint_every == 0:
@@ -119,10 +123,8 @@ class ForwardTrainer:
                 if step % hp.forward_plot_every == 0:
                     self.generate_plots(model, session)
 
-                self.writer.add_scalar('Gan/gen_fake_real', d_loss_fake_real, model.get_step())
-                self.writer.add_scalar('Gan/gen_feat_match', d_loss_feature, model.get_step())
-                self.writer.add_scalar('Gan/disc_fake', d_loss_fake, model.get_step())
-                self.writer.add_scalar('Gan/disc_real', d_loss_real, model.get_step())
+                self.writer.add_scalar('Gan/gen', loss_g, model.get_step())
+                self.writer.add_scalar('Gan/disc', loss_d, model.get_step())
                 self.writer.add_scalar('Mel_Loss/train', m_loss, model.get_step())
                 self.writer.add_scalar('Duration_Loss/train', dur_loss, model.get_step())
                 self.writer.add_scalar('Params/batch_size', session.bs, model.get_step())
