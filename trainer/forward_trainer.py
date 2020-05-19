@@ -103,8 +103,8 @@ class ForwardTrainer:
                 _, score_real = model.disc(m)
                 loss_d = 0.0
 
-                loss_d += torch.mean(torch.sum(torch.pow(score_real - 1.0, 2), dim=[1, 2]))
-                loss_d += torch.mean(torch.sum(torch.pow(score_fake, 2), dim=[1, 2]))
+                loss_d += torch.mean(torch.mean(torch.pow(score_real - 1.0, 2), dim=[1, 2]))
+                loss_d += torch.mean(torch.mean(torch.pow(score_fake, 2), dim=[1, 2]))
 
                 loss_d.backward()
                 disc_opti.step()
