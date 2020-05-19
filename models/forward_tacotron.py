@@ -88,8 +88,8 @@ class ResStack(nn.Module):
         self.blocks = nn.ModuleList([
             nn.Sequential(
                 nn.LeakyReLU(0.2),
-                nn.ReflectionPad1d(3**i),
-                nn.utils.weight_norm(nn.Conv1d(channel, channel, kernel_size=3, dilation=3**i)),
+                #nn.ReflectionPad1d(3**i),
+                nn.utils.weight_norm(nn.Conv1d(channel, channel, kernel_size=3, dilation=3**i, padding=3**i)),
                 nn.LeakyReLU(0.2),
                 nn.utils.weight_norm(nn.Conv1d(channel, channel, kernel_size=1)),
             )
@@ -141,8 +141,8 @@ class ForwardTacotron(nn.Module):
 
         self.register_buffer('step', torch.zeros(1, dtype=torch.long))
         self.generator = nn.Sequential(
-            nn.ReflectionPad1d(3),
-            nn.utils.weight_norm(nn.Conv1d(embed_dims, 256, kernel_size=7, stride=1)),
+            #nn.ReflectionPad1d(3),
+            nn.utils.weight_norm(nn.Conv1d(embed_dims, 256, kernel_size=7, stride=1, padding=3)),
             nn.LeakyReLU(0.2),
             ResStack(256, layers=4),
             ResStack(256, layers=4),
