@@ -190,7 +190,7 @@ class ForwardTacotron(nn.Module):
 
     def pad(self, x, max_len):
         x = x[:, :, :max_len]
-        x = F.pad(x, [0, max_len - x.size(2), 0, 0], 'constant')
+        x = F.pad(x, [0, max_len - x.size(2), 0, 0], 'constant', value=-4.)
         return x
 
     def get_step(self):
