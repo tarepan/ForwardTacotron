@@ -145,6 +145,9 @@ class ForwardTacotron(nn.Module):
             nn.utils.weight_norm(nn.Conv1d(embed_dims, 256, kernel_size=7, stride=1)),
             nn.LeakyReLU(0.2),
             ResStack(256, layers=4),
+            ResStack(256, layers=4),
+            ResStack(256, layers=4),
+            ResStack(256, layers=4),
             nn.ReflectionPad1d(3),
             nn.utils.weight_norm(nn.Conv1d(256, n_mels, kernel_size=7, stride=1)),
         )
