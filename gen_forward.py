@@ -1,7 +1,7 @@
 import torch
 
 from models.fatchord_version import WaveRNN
-from models.forward_tacotron import ForwardTacotron
+from models.forward_tacotron import ForwardTacotron, ForwardGan
 from utils import hparams as hp
 from utils.text.symbols import phonemes
 from utils.paths import Paths
@@ -39,12 +39,16 @@ if __name__ == '__main__':
     gl_parser = subparsers.add_parser('griffinlim', aliases=['gl'])
     gl_parser.add_argument('--iters', type=int, default=32, help='[int] number of griffinlim iterations')
 
+    mg_parser = subparsers.add_parser('melgan', aliases=['mg'])
+
     args = parser.parse_args()
 
     if args.vocoder in ['griffinlim', 'gl']:
         args.vocoder = 'griffinlim'
     elif args.vocoder in ['wavernn', 'wr']:
         args.vocoder = 'wavernn'
+    elif args.vocoder in ['melgan', 'mg']:
+        args.vocoder = 'melgan'
     else:
         raise argparse.ArgumentError('Must provide a valid vocoder type!')
 
@@ -94,19 +98,19 @@ if __name__ == '__main__':
         voc_model.load(voc_load_path)
 
     print('\nInitialising Forward TTS Model...\n')
-    tts_model = ForwardTacotron(embed_dims=hp.forward_embed_dims,
-                                num_chars=len(phonemes),
-                                durpred_rnn_dims=hp.forward_durpred_rnn_dims,
-                                durpred_conv_dims=hp.forward_durpred_conv_dims,
-                                durpred_dropout=hp.forward_durpred_dropout,
-                                rnn_dim=hp.forward_rnn_dims,
-                                postnet_k=hp.forward_postnet_K,
-                                postnet_dims=hp.forward_postnet_dims,
-                                prenet_k=hp.forward_prenet_K,
-                                prenet_dims=hp.forward_prenet_dims,
-                                highways=hp.forward_num_highways,
-                                dropout=hp.forward_dropout,
-                                n_mels=hp.num_mels).to(device)
+    tts_model = ForwardGan(embed_dims=hp.forward_embed_dims,
+                            num_chars=len(phonemes),
+                            durpred_rnn_dims=hp.forward_durpred_rnn_dims,
+                            durpred_conv_dims=hp.forward_durpred_conv_dims,
+                            durpred_dropout=hp.forward_durpred_dropout,
+                            rnn_dim=hp.forward_rnn_dims,
+                            postnet_k=hp.forward_postnet_K,
+                            postnet_dims=hp.forward_postnet_dims,
+                            prenet_k=hp.forward_prenet_K,
+                            prenet_dims=hp.forward_prenet_dims,
+                            highways=hp.forward_num_highways,
+                            dropout=hp.forward_dropout,
+                            n_mels=hp.num_mels).to(device)
 
     tts_load_path = tts_weights if tts_weights else paths.forward_latest_weights
     tts_model.load(tts_load_path)
@@ -118,6 +122,8 @@ if __name__ == '__main__':
         with open('sentences.txt') as f:
             inputs = [clean_text(l.strip()) for l in f]
         inputs = [text_to_sequence(t) for t in inputs]
+
+    tts_k = tts_model.get_step() // 1000
 
     if args.vocoder == 'wavernn':
         voc_k = voc_model.get_step() // 1000
@@ -131,19 +137,22 @@ if __name__ == '__main__':
                     ('Overlap Samples', overlap if batched else 'N/A')])
 
     elif args.vocoder == 'griffinlim':
-        tts_k = tts_model.get_step() // 1000
-        simple_table([('Tacotron', str(tts_k) + 'k'),
-                    ('Vocoder Type', 'Griffin-Lim'),
-                    ('GL Iters', args.iters)])
+        simple_table([('Forward Tacotron', str(tts_k) + 'k'),
+                      ('Vocoder Type', 'Griffin-Lim'),
+                      ('GL Iters', args.iters)])
+
+    elif args.vocoder == 'melgan':
+        simple_table([('Forward Tacotron', str(tts_k) + 'k'),
+                    ('Vocoder Type', 'MelGAN')])
 
     for i, x in enumerate(inputs, 1):
 
         print(f'\n| Generating {i}/{len(inputs)}')
-        _, m, _ = tts_model.generate(x, alpha=args.alpha)
+        _, m, _ = tts_model.gen.generate(x, alpha=args.alpha)
 
         # Fix mel spectrogram scaling to be from 0 to 1
-        m = (m + 4) / 8
-        np.clip(m, 0, 1, out=m)
+        #m = (m + 4) / 8
+        #np.clip(m, 0, 1, out=m)
 
         if args.vocoder == 'griffinlim':
             v_type = args.vocoder
@@ -160,6 +169,9 @@ if __name__ == '__main__':
         if args.vocoder == 'wavernn':
             m = torch.tensor(m).unsqueeze(0)
             voc_model.generate(m, save_path, batched, hp.voc_target, hp.voc_overlap, hp.mu_law)
+        if args.vocoder == 'melgan':
+            m = torch.tensor(m).unsqueeze(0)
+            torch.save(m, paths.forward_output/f'{i}_{tts_k}_alpha{args.alpha}.mel')
         elif args.vocoder == 'griffinlim':
             wav = reconstruct_waveform(m, n_iter=args.iters)
             save_wav(wav, save_path)
