@@ -3,7 +3,6 @@ from typing import Tuple
 
 import torch
 import torch.nn.functional as F
-from torch.optim.optimizer import Optimizer
 from torch.utils.data.dataset import Dataset
 from torch.utils.tensorboard import SummaryWriter
 
@@ -15,7 +14,7 @@ from utils.dataset import get_tts_datasets
 from utils.decorators import ignore_exception
 from utils.display import stream, simple_table, plot_mel
 from utils.distribution import MaskedBCE
-from utils.dsp import reconstruct_waveform, rescale_mel, np_now
+from utils.dsp import reconstruct_waveform, np_now
 from utils.paths import Paths
 
 
@@ -178,7 +177,6 @@ class ForwardTrainer:
         self.writer.add_figure('Ground_Truth_Aligned/linear', m1_hat_fig, model.get_step())
         self.writer.add_figure('Ground_Truth_Aligned/postnet', m2_hat_fig, model.get_step())
 
-        m1_hat, m2_hat, m = rescale_mel(m1_hat), rescale_mel(m2_hat), rescale_mel(m)
         m2_hat_wav = reconstruct_waveform(m2_hat)
         target_wav = reconstruct_waveform(m)
 
@@ -190,7 +188,6 @@ class ForwardTrainer:
             global_step=model.get_step(), sample_rate=hp.sample_rate)
 
         m1_hat, m2_hat, dur_hat = model.gen.generate(x[0].tolist())
-        m1_hat, m2_hat = rescale_mel(m1_hat), rescale_mel(m2_hat)
         m1_hat_fig = plot_mel(m1_hat)
         m2_hat_fig = plot_mel(m2_hat)
 
