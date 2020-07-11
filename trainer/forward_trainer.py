@@ -65,7 +65,7 @@ class ForwardTrainer:
                 model.disc.train()
                 x, m, dur, lens = x.to(device), m.to(device), dur.to(device), lens.to(device)
 
-                m1_hat, m2_hat, dur_hat, x_out = model.gen(x, m, dur)
+                m1_hat, m2_hat, dur_hat = model.gen(x, m, dur)
 
                 # train generator
                 model.zero_grad()
