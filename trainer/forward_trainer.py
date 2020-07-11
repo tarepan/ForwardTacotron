@@ -149,7 +149,7 @@ class ForwardTrainer:
         for i, (x, m, ids, lens, dur) in enumerate(val_set, 1):
             x, m, dur, lens = x.to(device), m.to(device), dur.to(device), lens.to(device)
             with torch.no_grad():
-                m1_hat, m2_hat, dur_hat, x_out = model.gen(x, m, dur)
+                m1_hat, m2_hat, dur_hat = model.gen(x, m, dur)
                 m1_loss = self.l1_loss(m1_hat, m, lens)
                 m2_loss = self.l1_loss(m2_hat, m, lens)
                 dur_loss = F.l1_loss(dur_hat, dur)
@@ -164,7 +164,7 @@ class ForwardTrainer:
         x, m, ids, lens, dur = session.val_sample
         x, m, dur = x.to(device), m.to(device), dur.to(device)
 
-        m1_hat, m2_hat, dur_hat, x_out = model.gen(x, m, dur)
+        m1_hat, m2_hat, dur_hat = model.gen(x, m, dur)
         m1_hat = np_now(m1_hat)[0, :600, :]
         m2_hat = np_now(m2_hat)[0, :600, :]
         m = np_now(m)[0, :600, :]
