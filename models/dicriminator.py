@@ -14,11 +14,11 @@ class Discriminator(torch.nn.Module):
                 nn.LeakyReLU(0.2, inplace=True),
             ),
             nn.Sequential(
-                nn.utils.weight_norm(nn.Conv1d(128, 256, kernel_size=41, stride=4, padding=20, groups=4)),
+                nn.utils.weight_norm(nn.Conv1d(128, 256, kernel_size=41, stride=1, padding=20, groups=4)),
                 nn.LeakyReLU(0.2, inplace=True),
             ),
             nn.Sequential(
-                nn.utils.weight_norm(nn.Conv1d(256, 512, kernel_size=41, stride=4, padding=20, groups=16)),
+                nn.utils.weight_norm(nn.Conv1d(256, 512, kernel_size=41, stride=1, padding=20, groups=16)),
                 nn.LeakyReLU(0.2, inplace=True),
             ),
             nn.utils.weight_norm(nn.Conv1d(512, 1, kernel_size=3, stride=1, padding=1)),
