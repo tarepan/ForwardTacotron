@@ -1,5 +1,8 @@
 import torch
 import torch.nn.functional as F
+from torch.nn import Linear
+from torch.nn.modules.rnn import LSTM
+
 from models.tacotron import CBHG
 import torch.nn as nn
 
@@ -8,21 +11,28 @@ class Discriminator(torch.nn.Module):
 
     def __init__(self, n_mels = 80) -> None:
         super().__init__()
-        self.discriminator = nn.ModuleList([
+        self.convs = nn.ModuleList([
             nn.Sequential(
-                nn.utils.weight_norm(nn.Conv1d(n_mels, 128, kernel_size=14, stride=1, padding=7)),
+                nn.utils.weight_norm(nn.Conv1d(n_mels, 256, kernel_size=14, stride=1, padding=7)),
                 nn.LeakyReLU(0.2, inplace=True),
             ),
-            nn.utils.weight_norm(nn.Conv1d(256, 1, kernel_size=3, stride=1, padding=1)),
+            #nn.utils.weight_norm(nn.Conv1d(256, 1, kernel_size=3, stride=1, padding=1)),
 
         ])
+        self.lstm = LSTM(256, 256, batch_first=True, bidirectional=True)
+        self.lin = Linear(512, 1)
 
     def forward(self, x):
         #x = x.transpose(1, 2)
         features = list()
-        for module in self.discriminator:
+        for module in self.convs:
             x = module(x)
             features.append(x)
+        x = x.transpose(1, 2)
+        x, _ = self.lstm(x)
+        features.append(x.transpose(1, 2))
+        x = self.lin(x)
+        features.append(x.transpose(1, 2))
         return features[:-1], features[-1]
 
 
