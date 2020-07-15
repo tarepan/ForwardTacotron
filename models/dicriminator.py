@@ -13,18 +13,14 @@ class Discriminator(torch.nn.Module):
         super().__init__()
         self.convs = nn.ModuleList([
             nn.Sequential(
-                nn.utils.weight_norm(nn.Conv1d(n_mels, 256, kernel_size=7, stride=1, padding=3)),
-                nn.LeakyReLU(0.2, inplace=True),
-                nn.utils.weight_norm(nn.Conv1d(256, 256, kernel_size=7, stride=1, padding=3)),
-                nn.LeakyReLU(0.2, inplace=True),
-                nn.utils.weight_norm(nn.Conv1d(256, 256, kernel_size=7, stride=1, padding=3)),
+                nn.utils.weight_norm(nn.Conv1d(n_mels, 256, kernel_size=14, stride=1, padding=7)),
                 nn.LeakyReLU(0.2, inplace=True),
             ),
             #nn.utils.weight_norm(nn.Conv1d(256, 1, kernel_size=3, stride=1, padding=1)),
 
         ])
-        self.lstm = LSTM(256, 512, batch_first=True, bidirectional=True)
-        self.lin = Linear(1024, 1)
+        self.lstm = LSTM(256, 256, batch_first=True, bidirectional=True)
+        self.lin = Linear(512, 1)
 
     def forward(self, x):
         #x = x.transpose(1, 2)
