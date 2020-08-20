@@ -147,7 +147,7 @@ class ForwardTacotron(nn.Module):
 
         x_p = self.prenet(x)
         device = next(self.parameters()).device
-        mel_len = mel_lens.shape[-1]
+        mel_len = mel.shape[-1]
         seq_len = mids.shape[1]
 
         t_range = torch.arange(0, mel_len).long().to(device)
