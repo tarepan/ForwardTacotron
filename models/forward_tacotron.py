@@ -137,8 +137,8 @@ class ForwardTacotron(nn.Module):
         if random.random() < 0.01:
             print(f'durs: {dur_hat[0]}')
 
-        for i in range(bs):
-            dur_hat[i] = dur_hat[i] / sum_durs[i].detach() * mel_lens[i]
+        #for i in range(bs):
+        #    dur_hat[i] = dur_hat[i] / sum_durs[i].detach() * mel_lens[i]
 
         ends = torch.cumsum(dur_hat, dim=1)
         mids = ends - dur_hat / 2.
