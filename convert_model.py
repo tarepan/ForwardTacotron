@@ -99,18 +99,18 @@ if __name__ == '__main__':
 
     print('\nInitialising Forward TTS Model...\n')
     tts_model = ForwardTacotronJIT(embed_dims=hp.forward_embed_dims,
-                                num_chars=len(phonemes),
-                                durpred_rnn_dims=hp.forward_durpred_rnn_dims,
-                                durpred_conv_dims=hp.forward_durpred_conv_dims,
-                                durpred_dropout=hp.forward_durpred_dropout,
-                                rnn_dim=hp.forward_rnn_dims,
-                                postnet_k=hp.forward_postnet_K,
-                                postnet_dims=hp.forward_postnet_dims,
-                                prenet_k=hp.forward_prenet_K,
-                                prenet_dims=hp.forward_prenet_dims,
-                                highways=hp.forward_num_highways,
-                                dropout=hp.forward_dropout,
-                                n_mels=hp.num_mels).to(device)
+                                   num_chars=len(phonemes),
+                                   durpred_rnn_dims=hp.forward_durpred_rnn_dims,
+                                   durpred_conv_dims=hp.forward_durpred_conv_dims,
+                                   durpred_dropout=hp.forward_durpred_dropout,
+                                   rnn_dim=hp.forward_rnn_dims,
+                                   postnet_k=hp.forward_postnet_K,
+                                   postnet_dims=hp.forward_postnet_dims,
+                                   prenet_k=hp.forward_prenet_K,
+                                   prenet_dims=hp.forward_prenet_dims,
+                                   highways=hp.forward_num_highways,
+                                   dropout=hp.forward_dropout,
+                                   n_mels=hp.num_mels).to(device)
 
     tts_load_path = tts_weights if tts_weights else paths.forward_latest_weights
     tts_model.load(tts_load_path)
@@ -121,13 +121,14 @@ if __name__ == '__main__':
     x = inputs[0]
     print(x)
     x = torch.as_tensor(x, dtype=torch.long, device=device).unsqueeze(0)
+
     print(x.shape)
 
     m = tts_model(x).detach().numpy()
+    print(m)
     wav = reconstruct_waveform(m, n_iter=args.iters)
-    save_wav(wav, '/tmp/sample.wav')
+    save_wav(wav, '/tmp/sample_new_2.wav')
 
     traced_script_module = torch.jit.script(tts_model, x)
-    traced_script_module.save("/tmp/forward_jit.pt")
+    traced_script_module.save("/tmp/forward_jit_5.pt")
 
-    
