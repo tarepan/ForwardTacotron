@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Union
-
+import random
 import numpy as np
 
 import torch.nn as nn
@@ -61,6 +61,7 @@ class DurationPredictor(nn.Module):
         x = x.transpose(1, 2)
         x, _ = self.rnn(x)
         x = self.lin(x)
+        x = torch.clamp(x, min=0.)
         return x / alpha
 
 
@@ -123,31 +124,70 @@ class ForwardTacotron(nn.Module):
         self.dropout = dropout
         self.post_proj = nn.Linear(2 * postnet_dims, n_mels, bias=False)
 
-    def forward(self, x, mel, dur):
+    def forward(self, x, mel, mel_lens):
         if self.training:
             self.step += 1
 
         x = self.embedding(x)
         dur_hat = self.dur_pred(x)
         dur_hat = dur_hat.squeeze()
+        sum_durs = torch.sum(dur_hat, dim=1)
+        bs = dur_hat.shape[0]
+
+        if random.random() < 0.01:
+            print(f'durs: {dur_hat[0]}')
+
+        for i in range(bs):
+            dur_hat[i] = dur_hat[i] / sum_durs[i].detach() * mel_lens[i]
+
+        ends = torch.cumsum(dur_hat, dim=1)
+        mids = ends - dur_hat / 2.
 
         x = x.transpose(1, 2)
-        x = self.prenet(x)
-        x = self.lr(x, dur)
+
+        x_p = self.prenet(x)
+        device = next(self.parameters()).device
+        mel_len = mel.shape[-1]
+        seq_len = mids.shape[1]
+
+        t_range = torch.arange(0, mel_len).long().to(device)
+        t_range = t_range.unsqueeze(0)
+        t_range = t_range.expand(bs, mel_len)
+        t_range = t_range.unsqueeze(-1)
+        t_range = t_range.expand(bs, mel_len, seq_len)
+
+        mids = mids.unsqueeze(1)
+        diff = t_range - mids
+        logits = -diff ** 2 / 10. - 1e-9
+        weights = torch.softmax(logits, dim=2)
+        x = torch.einsum('bij,bjk->bik', weights, x_p)
+        """
+        x = torch.zeros((bs, mel_len, x_p.shape[-1])).to(device)
+
+        for t in range(mel_len):
+            t_tens = torch.full((bs, 1), fill_value=t).to(device)
+            wt = torch.exp(-0.1*(t_tens - mids) ** 2)
+            norm = torch.sum(wt, dim=1) + 1e-9
+            norm = norm.unsqueeze(-1)
+            wt = wt.unsqueeze(-1)
+            v = wt * x_p
+            v = torch.sum(v, dim=1) / norm
+            x[:, t] = v
+        """
         x, _ = self.lstm(x)
         x = F.dropout(x,
                       p=self.dropout,
                       training=self.training)
         x = self.lin(x)
         x = x.transpose(1, 2)
-
         x_post = self.postnet(x)
         x_post = self.post_proj(x_post)
         x_post = x_post.transpose(1, 2)
 
         x_post = self.pad(x_post, mel.size(2))
         x = self.pad(x, mel.size(2))
-        return x, x_post, dur_hat
+
+        return x, x_post, sum_durs
 
     def generate(self, x, alpha=1.0):
         self.eval()
