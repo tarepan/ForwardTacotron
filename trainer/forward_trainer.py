@@ -24,7 +24,7 @@ class ForwardTrainer:
     def __init__(self, paths: Paths) -> None:
         self.paths = paths
         self.writer = SummaryWriter(log_dir=paths.forward_log, comment='v1')
-        self.l1_loss = MaskedL1()
+        self.l1_loss = F.l1_loss
 
     def train(self, model: ForwardTacotron, optimizer: Optimizer) -> None:
         for i, session_params in enumerate(hp.forward_schedule, 1):
