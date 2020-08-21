@@ -190,7 +190,7 @@ class ForwardTacotron(nn.Module):
         x_post = self.pad(x_post, mel.size(2))
         x = self.pad(x, mel.size(2))
 
-        return x, x_post, sum_durs
+        return x, x_post, sum_durs, dur_hat
 
     def generate(self, x, alpha=1.0):
         self.eval()
