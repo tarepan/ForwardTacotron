@@ -131,7 +131,7 @@ class ForwardTacotron(nn.Module):
         x = self.embedding(x)
         dur_hat = self.dur_pred(x)
         dur_hat = dur_hat.squeeze()
-        sum_durs = torch.sum(dur_hat, dim=1)
+        #sum_durs = torch.sum(dur_hat, dim=1)
         bs = dur_hat.shape[0]
 
         if random.random() < 0.01:
@@ -141,6 +141,7 @@ class ForwardTacotron(nn.Module):
         #    dur_hat[i] = dur_hat[i] / sum_durs[i].detach() * mel_lens[i]
 
         ends = torch.cumsum(dur_hat, dim=1)
+        sum_durs = ends[:, -1]
         mids = ends - dur_hat / 2.
 
         x = x.transpose(1, 2)
