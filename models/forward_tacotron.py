@@ -101,7 +101,7 @@ class ForwardTacotron(nn.Module):
         self.rnn_dim = rnn_dim
         self.embedding = nn.Embedding(num_chars, embed_dims)
         self.lr = LengthRegulator()
-        self.dur_pred = DurationPredictor(embed_dims,
+        self.dur_pred = DurationPredictor(2*prenet_dims,
                                           conv_dims=durpred_conv_dims,
                                           rnn_dims=durpred_rnn_dims,
                                           dropout=durpred_dropout)
@@ -129,7 +129,11 @@ class ForwardTacotron(nn.Module):
             self.step += 1
 
         x = self.embedding(x)
-        dur_hat = self.dur_pred(x)
+        x = x.transpose(1, 2)
+
+        x_p = self.prenet(x)
+
+        dur_hat = self.dur_pred(x_p)
         dur_hat = dur_hat.squeeze()
         #sum_durs = torch.sum(dur_hat, dim=1)
         bs = dur_hat.shape[0]
@@ -144,9 +148,6 @@ class ForwardTacotron(nn.Module):
         sum_durs = ends[:, -1]
         mids = ends - dur_hat / 2.
 
-        x = x.transpose(1, 2)
-
-        x_p = self.prenet(x)
         device = next(self.parameters()).device
         mel_len = mel.shape[-1]
         seq_len = mids.shape[1]
