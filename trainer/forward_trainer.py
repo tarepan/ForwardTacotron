@@ -110,6 +110,7 @@ class ForwardTrainer:
 
             m_loss_avg.reset()
             duration_avg.reset()
+            dur_loss_avg.reset()
             print(' ')
 
     def evaluate(self, model: ForwardTacotron, val_set: Dataset) -> float:
