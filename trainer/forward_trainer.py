@@ -65,7 +65,7 @@ class ForwardTrainer:
                 x, m, dur, lens = x.to(device), m.to(device), dur.to(device), lens.to(device)
 
                 m1_hat, m2_hat, dur_sum, dur_hat = model(x, m, lens)
-                duration_tensors.append(dur_hat)
+                duration_tensors.append(dur_hat.unsqueeze(0))
 
                 m1_loss = F.l1_loss(m1_hat, m)
                 m2_loss = F.l1_loss(m2_hat, m)
@@ -104,7 +104,7 @@ class ForwardTrainer:
 
             #m_val_loss, dur_val_loss = self.evaluate(model, session.val_set)
             #self.writer.add_scalar('Mel_Loss/val', m_val_loss, model.get_step())
-            duration_concat = torch.cat(duration_tensors, dim=1)
+            duration_concat = torch.cat(duration_tensors, dim=0)
             self.writer.add_histogram('Duration_Histo/train', duration_concat, model.get_step())
             save_checkpoint('forward', self.paths, model, optimizer, is_silent=True)
 
