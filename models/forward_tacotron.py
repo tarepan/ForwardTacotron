@@ -77,9 +77,9 @@ class BatchNormConv(nn.Module):
 
     def forward(self, x):
         x = self.conv(x)
+        x = self.bnorm(x)
         if self.activation:
             x = self.activation(x)
-        x = self.bnorm(x)
         return x
 
 
