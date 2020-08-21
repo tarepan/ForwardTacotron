@@ -55,7 +55,7 @@ class DurationPredictor(nn.Module):
 
     def forward(self, x, alpha=1.0):
         x = x.transpose(1, 2)
-        x = F.relu(x)
+        #x = F.relu(x)
         for conv in self.convs:
             x = conv(x)
             #x = F.dropout(x, p=self.dropout, training=self.training)
