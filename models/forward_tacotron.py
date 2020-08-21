@@ -47,10 +47,10 @@ class DurationPredictor(nn.Module):
         self.convs = torch.nn.ModuleList([
             BatchNormConv(in_dims, conv_dims, 5, activation=torch.relu),
             BatchNormConv(conv_dims, conv_dims, 5, activation=torch.relu),
-            BatchNormConv(conv_dims, conv_dims, 5, activation=torch.relu),
+           # BatchNormConv(conv_dims, conv_dims, 5, activation=torch.relu),
         ])
-        self.rnn = nn.GRU(conv_dims, rnn_dims, batch_first=True, bidirectional=True)
-        self.lin = nn.Linear(2 * rnn_dims, 1)
+        #self.rnn = nn.GRU(conv_dims, rnn_dims, batch_first=True, bidirectional=True)
+        self.lin = nn.Linear(conv_dims, 1)
         self.dropout = dropout
 
     def forward(self, x, alpha=1.0):
@@ -59,7 +59,7 @@ class DurationPredictor(nn.Module):
             x = conv(x)
             #x = F.dropout(x, p=self.dropout, training=self.training)
         x = x.transpose(1, 2)
-        x, _ = self.rnn(x)
+        #x, _ = self.rnn(x)
         x = self.lin(x)
         x = torch.clamp(x, min=0.)
         return x / alpha
