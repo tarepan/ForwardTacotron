@@ -133,9 +133,10 @@ class ForwardTacotron(nn.Module):
         x = self.embedding(x)
         x = x.transpose(1, 2)
 
-        x_p = self.prenet(x)
+        x = self.prenet(x)
+        x_p = x
 
-        dur_hat = self.dur_pred(x_p)
+        dur_hat = self.dur_pred(x)
         dur_hat = dur_hat.squeeze()
         #sum_durs = torch.sum(dur_hat, dim=1)
         bs = dur_hat.shape[0]
