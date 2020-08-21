@@ -60,8 +60,8 @@ class DurationPredictor(nn.Module):
             #x = F.dropout(x, p=self.dropout, training=self.training)
         x = x.transpose(1, 2)
         #x, _ = self.rnn(x)
-        x = self.lin(x)
-        x = torch.clamp(x, min=0.)
+        x = self.lin(x, activation='relu')
+        #x = torch.clamp(x, min=0.)
         return x / alpha
 
 
