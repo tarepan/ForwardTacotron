@@ -158,6 +158,7 @@ class ForwardTacotron(nn.Module):
 
         sequence_length = x.shape[1]  # = 600
         mask = torch.arange(sequence_length)[None, :].to(device) < x_lens[:, None]
+        mask = mask.to(device)
 
         token_ends = torch.cumsum(token_lengths, dim=1)
         token_centres = token_ends - (token_lengths / 2.)
