@@ -154,6 +154,7 @@ class ForwardTacotron(nn.Module):
 
         #for i in range(bs):
         #    dur_hat[i] = dur_hat[i] / sum_durs[i].detach() * mel_lens[i]
+        device = next(self.parameters()).device
 
         sequence_length = x.shape[1]  # = 600
         mask = torch.arange(sequence_length)[None, :] < x_lens[:, None]
@@ -161,9 +162,8 @@ class ForwardTacotron(nn.Module):
         token_ends = torch.cumsum(token_lengths, dim=1)
         token_centres = token_ends - (token_lengths / 2.)
         aligned_lengths = [end[length - 1] for end, length in zip(token_ends, x_lens)]
-        aligned_lengths = torch.tensor(aligned_lengths)
+        aligned_lengths = torch.tensor(aligned_lengths).to(device)
 
-        device = next(self.parameters()).device
         mel_len = mel.shape[-1]
         seq_len = token_centres.shape[1]
 
