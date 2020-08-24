@@ -175,7 +175,7 @@ class ForwardTacotron(nn.Module):
         token_ends = torch.cumsum(token_lengths, dim=1)
         token_centres = token_ends - (token_lengths / 2.)
 
-        aligned_lengths = token_lengths * mask.float()
+        aligned_lengths = token_lengths.float() * mask.float()
         aligned_lengths = torch.sum(aligned_lengths, dim=1)
 
         mel_len = mel.shape[-1]
