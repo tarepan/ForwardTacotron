@@ -162,8 +162,14 @@ class ForwardTacotron(nn.Module):
 
         token_ends = torch.cumsum(token_lengths, dim=1)
         token_centres = token_ends - (token_lengths / 2.)
-        aligned_lengths = [end[length - 1] for end, length in zip(token_ends, x_lens)]
-        aligned_lengths = torch.tensor(aligned_lengths).to(device)
+
+        aligned_lengths = token_lengths * mask.float()
+        aligned_lengths = torch.sum(aligned_lengths, dim=1)
+        #print(token_ends)
+       # print(aligned_lengths)
+
+        #aligned_lengths = [end[length - 1] for end, length in zip(token_ends, x_lens)]
+        #aligned_lengths = torch.tensor(aligned_lengths).to(device)
 
         mel_len = mel.shape[-1]
         seq_len = token_centres.shape[1]
