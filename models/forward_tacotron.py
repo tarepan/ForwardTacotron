@@ -83,6 +83,27 @@ class BatchNormConv(nn.Module):
         return x
 
 
+class ConvStack(nn.Module):
+    def __init__(self, channel, layers=4):
+        super(ConvStack, self).__init__()
+
+        self.blocks = nn.ModuleList([
+            nn.Sequential(
+                nn.LeakyReLU(0.2),
+                #nn.ReflectionPad1d(3**i),
+                nn.utils.weight_norm(nn.Conv1d(channel, channel, kernel_size=3, dilation=3**i, padding=3**i)),
+                nn.LeakyReLU(0.2),
+                nn.utils.weight_norm(nn.Conv1d(channel, channel, kernel_size=1)),
+            )
+            for i in range(layers)
+        ])
+
+    def forward(self, x):
+        for block in self.blocks:
+            x = block(x)
+        return x
+
+
 class ForwardTacotron(nn.Module):
 
     def __init__(self,
@@ -103,28 +124,16 @@ class ForwardTacotron(nn.Module):
         self.rnn_dim = rnn_dim
         self.embedding = nn.Embedding(num_chars, embed_dims)
         self.lr = LengthRegulator()
-        self.dur_pred = DurationPredictor(2*prenet_dims,
+        self.dur_pred = DurationPredictor(256,
                                           conv_dims=durpred_conv_dims,
                                           rnn_dims=durpred_rnn_dims,
                                           dropout=durpred_dropout)
-        self.prenet = CBHG(K=prenet_k,
-                           in_channels=embed_dims,
-                           channels=prenet_dims,
-                           proj_channels=[prenet_dims, embed_dims],
-                           num_highways=highways)
-        self.lstm = nn.LSTM(2 * prenet_dims,
-                            rnn_dim,
-                            batch_first=True,
-                            bidirectional=True)
+        self.prenet = ConvStack(embed_dims, layers=4)
+
         self.lin = torch.nn.Linear(2 * rnn_dim, n_mels)
         self.register_buffer('step', torch.zeros(1, dtype=torch.long))
-        self.postnet = CBHG(K=postnet_k,
-                            in_channels=n_mels,
-                            channels=postnet_dims,
-                            proj_channels=[postnet_dims, n_mels],
-                            num_highways=highways)
-        self.dropout = dropout
-        self.post_proj = nn.Linear(2 * postnet_dims, n_mels, bias=False)
+        self.postnet = ConvStack(256, layers=4)
+        self.post_proj = nn.Linear(256, n_mels, bias=False)
 
     def forward(self, x, mel, mel_lens):
         if self.training:
@@ -132,8 +141,8 @@ class ForwardTacotron(nn.Module):
 
         x = self.embedding(x)
         x = x.transpose(1, 2)
-
         x = self.prenet(x)
+        x = x.transpose(1, 2)
         x_p = x
 
         dur_hat = self.dur_pred(x)
@@ -179,20 +188,15 @@ class ForwardTacotron(nn.Module):
             v = torch.sum(v, dim=1) / norm
             x[:, t] = v
         """
-        x, _ = self.lstm(x)
-        x = F.dropout(x,
-                      p=self.dropout,
-                      training=self.training)
-        x = self.lin(x)
         x = x.transpose(1, 2)
         x_post = self.postnet(x)
+        x_post = x_post.transpose(1, 2)
         x_post = self.post_proj(x_post)
         x_post = x_post.transpose(1, 2)
 
         x_post = self.pad(x_post, mel.size(2))
-        x = self.pad(x, mel.size(2))
 
-        return x, x_post, sum_durs, dur_hat
+        return x_post, x_post, sum_durs, dur_hat
 
     def generate(self, x, alpha=1.0):
         self.eval()
