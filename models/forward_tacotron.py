@@ -171,14 +171,14 @@ class ForwardTacotron(nn.Module):
         mask = mask.to(device)
 
         token_ends = torch.cumsum(token_lengths, dim=1)
-        token_centres = token_ends - (token_lengths / 2.)
-
         aligned_lengths = token_lengths.float() * mask.float()
         aligned_lengths = torch.sum(aligned_lengths, dim=1)
 
         if self.training:
             for i in range(bs):
                 token_ends[i] = token_ends[i] / aligned_lengths[i].detach() * mel_lens[i]
+
+        token_centres = token_ends - (token_lengths / 2.)
 
         mel_len = mel.shape[-1]
         seq_len = token_centres.shape[1]
