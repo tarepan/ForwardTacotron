@@ -174,9 +174,9 @@ class ForwardTacotron(nn.Module):
         aligned_lengths = token_lengths.float() * mask.float()
         aligned_lengths = torch.sum(aligned_lengths, dim=1)
 
-        if self.training:
-            for i in range(bs):
-                token_ends[i] = token_ends[i] / aligned_lengths[i].detach() * mel_lens[i]
+        #if self.training:
+        #    for i in range(bs):
+        #        token_ends[i] = token_ends[i] / aligned_lengths[i].detach() * mel_lens[i]
 
         token_centres = token_ends - (token_lengths / 2.)
 
