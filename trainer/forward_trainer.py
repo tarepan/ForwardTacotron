@@ -24,6 +24,7 @@ class ForwardTrainer:
     def __init__(self, paths: Paths) -> None:
         self.paths = paths
         self.writer = SummaryWriter(log_dir=paths.forward_log, comment='v1')
+        self.l1_loss = MaskedL1()
 
     def train(self, model: ForwardTacotron, optimizer: Optimizer) -> None:
         for i, session_params in enumerate(hp.forward_schedule, 1):
@@ -67,8 +68,8 @@ class ForwardTrainer:
                 m1_hat, m2_hat, dur_sum, dur_hat = model(x, m, x_lens)
                 duration_tensors.append(dur_hat.flatten())
 
-                m1_loss = F.l1_loss(m1_hat, m)
-                m2_loss = F.l1_loss(m2_hat, m)
+                m1_loss = self.l1_loss(m1_hat, m, mel_lens)
+                m2_loss = self.l1_loss(m2_hat, m, mel_lens)
 
                 dur_loss = 1e-2*F.mse_loss(dur_sum.float(), mel_lens.float())
 
