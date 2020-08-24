@@ -147,7 +147,7 @@ class ForwardTacotron(nn.Module):
         self.postnet = ConvStack(256, layers=1)
         self.post_proj = nn.Linear(256, n_mels, bias=False)
 
-    def forward(self, x, mel, x_lens):
+    def forward(self, x, mel, x_lens, mel_lens):
         if self.training:
             self.step += 1
 
@@ -164,8 +164,6 @@ class ForwardTacotron(nn.Module):
         if random.random() < 0.01:
             print(f'durs: {token_lengths[0]}')
 
-        #for i in range(bs):
-        #    dur_hat[i] = dur_hat[i] / sum_durs[i].detach() * mel_lens[i]
         device = next(self.parameters()).device
 
         sequence_length = x.shape[1]  # = 600
@@ -177,6 +175,10 @@ class ForwardTacotron(nn.Module):
 
         aligned_lengths = token_lengths.float() * mask.float()
         aligned_lengths = torch.sum(aligned_lengths, dim=1)
+
+        if self.training:
+            for i in range(bs):
+                token_ends[i] = token_ends[i] / aligned_lengths[i].detach() * mel_lens[i]
 
         mel_len = mel.shape[-1]
         seq_len = token_centres.shape[1]
