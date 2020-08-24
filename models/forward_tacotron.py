@@ -178,7 +178,9 @@ class ForwardTacotron(nn.Module):
         diff = out_pos - token_centres
         logits = - (diff ** 2 / 10.)
         logits_inv_mask = 1. - mask[:, None, :].float()
-        masked_logits = logits - 1e-9 * logits_inv_mask
+
+        #print(logits_inv_mask[:2, :, :])
+        masked_logits = logits - 1e9 * logits_inv_mask
         weights = torch.softmax(masked_logits, dim=2)
         x = torch.einsum('bij,bjk->bik', weights, x_p)
         """
