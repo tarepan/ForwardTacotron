@@ -55,6 +55,7 @@ class DurationPredictor(nn.Module):
 
     def forward(self, x, alpha=1.0):
         x = x.transpose(1, 2)
+
         #x = F.relu(x)
         for conv in self.convs:
             x = conv(x)
@@ -84,23 +85,27 @@ class BatchNormConv(nn.Module):
 
 
 class ConvStack(nn.Module):
+
     def __init__(self, channel, layers=4):
         super(ConvStack, self).__init__()
-
         self.blocks = nn.ModuleList([
             nn.Sequential(
-                nn.LeakyReLU(0.2),
-                #nn.ReflectionPad1d(3**i),
-                nn.utils.weight_norm(nn.Conv1d(channel, channel, kernel_size=3, dilation=3**i, padding=3**i)),
-                nn.LeakyReLU(0.2),
-                nn.utils.weight_norm(nn.Conv1d(channel, channel, kernel_size=1)),
+                nn.ReLU(),
+                nn.Conv1d(channel, channel, kernel_size=3, dilation=a, padding=a),
+                nn.BatchNorm1d(channel),
+                nn.ReLU(),
+                nn.Conv1d(channel, channel, kernel_size=3, dilation=b, padding=b),
+                nn.BatchNorm1d(channel),
+                nn.ReLU(),
             )
-            for i in range(layers)
+            for a, b in [(1, 2), (4, 8), (16, 32)]
         ])
 
     def forward(self, x):
         for block in self.blocks:
+            block_inputs = x
             x = block(x)
+            x += block_inputs
         return x
 
 
