@@ -135,7 +135,7 @@ class ForwardTacotron(nn.Module):
         self.postnet = ConvStack(256, layers=4)
         self.post_proj = nn.Linear(256, n_mels, bias=False)
 
-    def forward(self, x, mel, mel_lens):
+    def forward(self, x, mel, x_lens):
         if self.training:
             self.step += 1
 
@@ -145,35 +145,40 @@ class ForwardTacotron(nn.Module):
         x = x.transpose(1, 2)
         x_p = x
 
-        dur_hat = self.dur_pred(x)
-        dur_hat = dur_hat.squeeze()
-        #sum_durs = torch.sum(dur_hat, dim=1)
-        bs = dur_hat.shape[0]
+        token_lengths = self.dur_pred(x)
+        token_lengths = token_lengths.squeeze()
+        bs = token_lengths.shape[0]
 
         if random.random() < 0.01:
-            print(f'durs: {dur_hat[0]}')
+            print(f'durs: {token_lengths[0]}')
 
         #for i in range(bs):
         #    dur_hat[i] = dur_hat[i] / sum_durs[i].detach() * mel_lens[i]
 
-        ends = torch.cumsum(dur_hat, dim=1)
-        sum_durs = ends[:, -1]
-        mids = ends - dur_hat / 2.
+        sequence_length = x.shape[1]  # = 600
+        mask = torch.arange(sequence_length)[None, :] < x_lens[:, None]
+
+        token_ends = torch.cumsum(token_lengths, dim=1)
+        token_centres = token_ends - (token_lengths / 2.)
+        aligned_lengths = [end[length - 1] for end, length in zip(token_ends, x_lens)]
+        aligned_lengths = torch.tensor(aligned_lengths)
 
         device = next(self.parameters()).device
         mel_len = mel.shape[-1]
-        seq_len = mids.shape[1]
+        seq_len = token_centres.shape[1]
 
-        t_range = torch.arange(0, mel_len).long().to(device)
-        t_range = t_range.unsqueeze(0)
-        t_range = t_range.expand(bs, mel_len)
-        t_range = t_range.unsqueeze(-1)
-        t_range = t_range.expand(bs, mel_len, seq_len)
+        out_pos = torch.arange(0, mel_len).long().to(device)
+        out_pos = out_pos.unsqueeze(0)
+        out_pos = out_pos.expand(bs, mel_len)
+        out_pos = out_pos.unsqueeze(-1)
+        out_pos = out_pos.expand(bs, mel_len, seq_len)
 
-        mids = mids.unsqueeze(1)
-        diff = t_range - mids
-        logits = -diff ** 2 / 10. - 1e-9
-        weights = torch.softmax(logits, dim=2)
+        token_centres = token_centres.unsqueeze(1)
+        diff = out_pos - token_centres
+        logits = - (diff ** 2 / 10.)
+        logits_inv_mask = 1. - mask[:, None, :].float()
+        masked_logits = logits - 1e-9 * logits_inv_mask
+        weights = torch.softmax(masked_logits, dim=2)
         x = torch.einsum('bij,bjk->bik', weights, x_p)
         """
         x = torch.zeros((bs, mel_len, x_p.shape[-1])).to(device)
@@ -196,7 +201,7 @@ class ForwardTacotron(nn.Module):
 
         x_post = self.pad(x_post, mel.size(2))
 
-        return x_post, x_post, sum_durs, dur_hat
+        return x_post, x_post, aligned_lengths, token_lengths
 
     def generate(self, x, alpha=1.0):
         self.eval()

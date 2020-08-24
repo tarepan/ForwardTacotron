@@ -211,12 +211,13 @@ def collate_tts(batch, r):
     mel_lens = torch.tensor(mel_lens)
     chars = torch.tensor(chars).long()
     mel = torch.tensor(mel)
+    x_lens = torch.tensor(x_lens)
     # additional durations for forward
     if len(batch[0]) > 4:
         dur = [pad1d(x[4][:max_x_len], max_x_len) for x in batch]
         dur = np.stack(dur)
         dur = torch.tensor(dur).float()
-        return chars, mel, ids, mel_lens, dur
+        return chars, mel, ids, x_lens, mel_lens, dur
     else:
         return chars, mel, ids, mel_lens
 
