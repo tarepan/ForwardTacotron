@@ -70,7 +70,7 @@ class ForwardTrainer:
                 m1_loss = F.l1_loss(m1_hat, m)
                 m2_loss = F.l1_loss(m2_hat, m)
 
-                dur_loss = 1e-5*F.mse_loss(dur_sum.float(), mel_lens.float())
+                dur_loss = 1e-2*F.mse_loss(dur_sum.float(), mel_lens.float())
 
                 loss = m1_loss + m2_loss + dur_loss
                 optimizer.zero_grad()
