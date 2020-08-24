@@ -79,8 +79,22 @@ class BatchNormConv(nn.Module):
 
 class ConvStack(nn.Module):
 
-    def __init__(self, channel, layers=4):
+    def __init__(self, channel, layers=10):
         super(ConvStack, self).__init__()
+        self.blocks = nn.ModuleList([
+            ConvBlock(channel) for _ in range(layers)
+        ])
+
+    def forward(self, x):
+        for block in self.blocks:
+            x = block(x)
+        return x
+
+
+class ConvBlock(nn.Module):
+
+    def __init__(self, channel):
+        super(ConvBlock, self).__init__()
         self.blocks = nn.ModuleList([
             nn.Sequential(
                 nn.ReLU(),
@@ -126,11 +140,11 @@ class ForwardTacotron(nn.Module):
                                           conv_dims=durpred_conv_dims,
                                           rnn_dims=durpred_rnn_dims,
                                           dropout=durpred_dropout)
-        self.prenet = ConvStack(embed_dims, layers=4)
+        self.prenet = ConvStack(embed_dims)
 
         self.lin = torch.nn.Linear(2 * rnn_dim, n_mels)
         self.register_buffer('step', torch.zeros(1, dtype=torch.long))
-        self.postnet = ConvStack(256, layers=4)
+        self.postnet = ConvStack(256, layers=3)
         self.post_proj = nn.Linear(256, n_mels, bias=False)
 
     def forward(self, x, mel, x_lens):
