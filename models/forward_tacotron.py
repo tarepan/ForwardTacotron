@@ -171,8 +171,10 @@ class ForwardTacotron(nn.Module):
         mask = mask.to(device)
 
         token_ends = torch.cumsum(token_lengths, dim=1)
-        aligned_lengths = token_lengths.float() * mask.float()
-        aligned_lengths = torch.sum(aligned_lengths, dim=1)
+
+        aligned_lengths = token_ends.gather(1, x_lens.unsqueeze(1)-1)
+        #aligned_lengths = token_lengths.float() * mask.float()
+        #aligned_lengths = torch.sum(aligned_lengths, dim=1)
 
         #if self.training:
         #    for i in range(bs):
@@ -194,7 +196,6 @@ class ForwardTacotron(nn.Module):
         logits = - (diff ** 2 / 1.)
         logits_inv_mask = 1. - mask[:, None, :].float()
 
-        #print(logits_inv_mask[:2, :, :])
         masked_logits = logits - 1e9 * logits_inv_mask
         weights = torch.softmax(masked_logits, dim=2)
         x = torch.einsum('bij,bjk->bik', weights, x_p)
