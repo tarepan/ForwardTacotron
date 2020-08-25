@@ -172,7 +172,7 @@ class ForwardTacotron(nn.Module):
 
         token_ends = torch.cumsum(token_lengths, dim=1)
 
-        aligned_lengths = token_ends.gather(1, x_lens.unsqueeze(1)-1)
+        aligned_lengths = token_ends.gather(1, x_lens.unsqueeze(1)-1).squeeze()
         #aligned_lengths = token_lengths.float() * mask.float()
         #aligned_lengths = torch.sum(aligned_lengths, dim=1)
 
@@ -183,17 +183,15 @@ class ForwardTacotron(nn.Module):
         token_centres = token_ends - (token_lengths / 2.)
 
         mel_len = mel.shape[-1]
-        seq_len = token_centres.shape[1]
+        out_pos = torch.arange(0, mel_len)[None, :].to(device)
+        out_pos = out_pos[:, :, None].float()
+        #out_pos = out_pos.expand(bs, mel_len)
+        #out_pos = out_pos.unsqueeze(-1)
+        #out_pos = out_pos.expand(bs, mel_len, seq_len)
 
-        out_pos = torch.arange(0, mel_len).long().to(device)
-        out_pos = out_pos.unsqueeze(0)
-        out_pos = out_pos.expand(bs, mel_len)
-        out_pos = out_pos.unsqueeze(-1)
-        out_pos = out_pos.expand(bs, mel_len, seq_len)
-
-        token_centres = token_centres.unsqueeze(1)
-        diff = out_pos - token_centres
-        logits = - (diff ** 2 / 1.)
+        #token_centres = token_centres.unsqueeze(1)
+        diff = token_centres[:, None, :] - out_pos
+        logits = - (diff ** 2 / 10.)
         logits_inv_mask = 1. - mask[:, None, :].float()
 
         masked_logits = logits - 1e9 * logits_inv_mask
