@@ -51,7 +51,6 @@ class DurationPredictor(nn.Module):
             BatchNormConv(conv_dims, 1, 1, activation=torch.relu),
         ])
 
-
     def forward(self, x, alpha=1.0):
         x = x.transpose(1, 2)
         for conv in self.convs:
@@ -147,7 +146,7 @@ class ForwardTacotron(nn.Module):
         self.postnet = ConvStack(256, layers=2)
         self.post_proj = nn.Linear(256, n_mels, bias=False)
 
-    def forward(self, x, mel, x_lens, mel_lens, durs):
+    def forward(self, x, mel, x_lens, mel_lens, durs, out_offset=0, out_seq_len=None):
         if self.training:
             self.step += 1
 
@@ -173,8 +172,10 @@ class ForwardTacotron(nn.Module):
         aligned_lengths = token_ends.gather(1, x_lens.unsqueeze(1)-1).squeeze()
         token_centres = token_ends - (token_lengths / 2.)
 
-        mel_len = mel.shape[-1]
-        out_pos = torch.arange(0, mel_len)[None, :].to(device)
+        out_seq_len = mel.shape[-1]
+        out_pos = torch.arange(0, out_seq_len)[None, :] + out_offset
+
+        out_pos = out_pos.to(device)
         out_pos = out_pos[:, :, None].float()
         diff = token_centres[:, None, :] - out_pos
         logits = - (diff ** 2 / 10.)
@@ -183,7 +184,6 @@ class ForwardTacotron(nn.Module):
         masked_logits = logits - 1e9 * logits_inv_mask
         weights = torch.softmax(masked_logits, dim=2)
 
-        print(f'weights shape {weights.shape}')
         x = torch.einsum('bij,bjk->bik', weights, x_p)
         x = x.transpose(1, 2)
         x_post = self.postnet(x)
