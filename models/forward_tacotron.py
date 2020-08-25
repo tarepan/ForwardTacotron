@@ -140,11 +140,11 @@ class ForwardTacotron(nn.Module):
                                           conv_dims=durpred_conv_dims,
                                           rnn_dims=durpred_rnn_dims,
                                           dropout=durpred_dropout)
-        self.prenet = ConvStack(embed_dims, layers=10)
+        self.prenet = ConvStack(embed_dims, layers=2)
 
         self.lin = torch.nn.Linear(2 * rnn_dim, n_mels)
         self.register_buffer('step', torch.zeros(1, dtype=torch.long))
-        self.postnet = ConvStack(256, layers=10)
+        self.postnet = ConvStack(256, layers=2)
         self.post_proj = nn.Linear(256, n_mels, bias=False)
 
     def forward(self, x, mel, x_lens, mel_lens):
@@ -166,7 +166,7 @@ class ForwardTacotron(nn.Module):
 
         device = next(self.parameters()).device
 
-        sequence_length = x.shape[1]  # = 600
+        sequence_length = x.shape[1]
         mask = torch.arange(sequence_length)[None, :].to(device) < x_lens[:, None]
         mask = mask.to(device)
 
@@ -191,7 +191,7 @@ class ForwardTacotron(nn.Module):
 
         token_centres = token_centres.unsqueeze(1)
         diff = out_pos - token_centres
-        logits = - (diff ** 2 / 10.)
+        logits = - (diff ** 2 / 1.)
         logits_inv_mask = 1. - mask[:, None, :].float()
 
         #print(logits_inv_mask[:2, :, :])
