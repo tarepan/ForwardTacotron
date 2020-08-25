@@ -47,7 +47,7 @@ class DurationPredictor(nn.Module):
         super().__init__()
         self.convs = torch.nn.ModuleList([
             BatchNorm1d(in_dims),
-            BatchNormConv(in_dims, conv_dims, 1, activation=torch.relu),
+            BatchNormConv(in_dims, conv_dims, 5, activation=torch.relu),
             BatchNormConv(conv_dims, 1, 1, activation=torch.relu),
         ])
 
@@ -160,8 +160,6 @@ class ForwardTacotron(nn.Module):
         token_lengths = self.dur_pred(x)
         token_lengths = token_lengths.squeeze()
 
-        #token_lengths = durs
-
         if random.random() < 0.01:
             print(f'durs: {token_lengths[0]}')
 
@@ -172,15 +170,7 @@ class ForwardTacotron(nn.Module):
         mask = mask.to(device)
 
         token_ends = torch.cumsum(token_lengths, dim=1)
-
         aligned_lengths = token_ends.gather(1, x_lens.unsqueeze(1)-1).squeeze()
-        #aligned_lengths = token_lengths.float() * mask.float()
-        #aligned_lengths = torch.sum(aligned_lengths, dim=1)
-
-        #if self.training:
-        #    for i in range(bs):
-        #        token_ends[i] = token_ends[i] / aligned_lengths[i].detach() * mel_lens[i]
-
         token_centres = token_ends - (token_lengths / 2.)
 
         mel_len = mel.shape[-1]
@@ -192,20 +182,9 @@ class ForwardTacotron(nn.Module):
 
         masked_logits = logits - 1e9 * logits_inv_mask
         weights = torch.softmax(masked_logits, dim=2)
-        x = torch.einsum('bij,bjk->bik', weights, x_p)
-        """
-        x = torch.zeros((bs, mel_len, x_p.shape[-1])).to(device)
 
-        for t in range(mel_len):
-            t_tens = torch.full((bs, 1), fill_value=t).to(device)
-            wt = torch.exp(-0.1*(t_tens - mids) ** 2)
-            norm = torch.sum(wt, dim=1) + 1e-9
-            norm = norm.unsqueeze(-1)
-            wt = wt.unsqueeze(-1)
-            v = wt * x_p
-            v = torch.sum(v, dim=1) / norm
-            x[:, t] = v
-        """
+        print(f'weights shape {weights.shape}')
+        x = torch.einsum('bij,bjk->bik', weights, x_p)
         x = x.transpose(1, 2)
         x_post = self.postnet(x)
         x_post = x_post.transpose(1, 2)
