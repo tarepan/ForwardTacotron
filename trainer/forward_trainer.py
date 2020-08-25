@@ -75,11 +75,11 @@ class ForwardTrainer:
                 duration_tensors.append(dur_hat.flatten())
 
                 m1_loss = self.l1_loss(m1_hat, m, mel_lens)
-                m2_loss = self.l1_loss(m2_hat, m, mel_lens)
+                m2_loss = F.mse_loss(m2_hat, m)
 
                 dur_loss = 1e-2*F.mse_loss(dur_sum.float(), mel_lens.float())
 
-                loss = m1_loss + m2_loss + dur_loss
+                loss = m2_loss + dur_loss
                 optimizer.zero_grad()
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(), hp.tts_clip_grad_norm)
@@ -102,7 +102,7 @@ class ForwardTrainer:
                 if step % hp.forward_plot_every == 0:
                     self.generate_plots(model, session)
 
-                self.writer.add_scalar('Mel_Loss/train', m1_loss + m2_loss, model.get_step())
+                self.writer.add_scalar('Mel_Loss/train', m2_loss, model.get_step())
                 self.writer.add_scalar('Duration_Loss/train', dur_loss, model.get_step())
                 self.writer.add_scalar('Params/batch_size', session.bs, model.get_step())
                 self.writer.add_scalar('Params/learning_rate', session.lr, model.get_step())
