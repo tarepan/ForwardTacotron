@@ -147,7 +147,7 @@ class ForwardTacotron(nn.Module):
         self.postnet = ConvStack(256, layers=2)
         self.post_proj = nn.Linear(256, n_mels, bias=False)
 
-    def forward(self, x, mel, x_lens, mel_lens):
+    def forward(self, x, mel, x_lens, mel_lens, durs):
         if self.training:
             self.step += 1
 
@@ -158,8 +158,9 @@ class ForwardTacotron(nn.Module):
         x_p = x
 
         token_lengths = self.dur_pred(x)
+
+        token_lengths = durs
         token_lengths = token_lengths.squeeze()
-        bs = token_lengths.shape[0]
 
         if random.random() < 0.01:
             print(f'durs: {token_lengths[0]}')
@@ -185,11 +186,6 @@ class ForwardTacotron(nn.Module):
         mel_len = mel.shape[-1]
         out_pos = torch.arange(0, mel_len)[None, :].to(device)
         out_pos = out_pos[:, :, None].float()
-        #out_pos = out_pos.expand(bs, mel_len)
-        #out_pos = out_pos.unsqueeze(-1)
-        #out_pos = out_pos.expand(bs, mel_len, seq_len)
-
-        #token_centres = token_centres.unsqueeze(1)
         diff = token_centres[:, None, :] - out_pos
         logits = - (diff ** 2 / 10.)
         logits_inv_mask = 1. - mask[:, None, :].float()
