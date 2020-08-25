@@ -72,12 +72,13 @@ class ForwardTrainer:
                 #m = m[:, :, out_offset:out_offset+out_seq_len]
 
                 m1_hat, m2_hat, dur_sum, dur_hat = model(x, m, x_lens, mel_lens, dur, out_offset=0)
+
                 duration_tensors.append(dur_hat.flatten())
 
                 m1_loss = F.l1_loss(m1_hat, m)
                 m2_loss = F.l1_loss(m2_hat, m)
-
                 dur_loss = 1e-2*F.mse_loss(dur_sum.float(), mel_lens.float())
+                dur_length_loss = F.l1_loss(dur_hat, dur)
 
                 loss = m2_loss + dur_loss
                 optimizer.zero_grad()
@@ -103,7 +104,8 @@ class ForwardTrainer:
                     self.generate_plots(model, session)
 
                 self.writer.add_scalar('Mel_Loss/train', m2_loss, model.get_step())
-                self.writer.add_scalar('Duration_Loss/train', dur_loss, model.get_step())
+                self.writer.add_scalar('Duration_Sum_Loss/train', dur_loss, model.get_step())
+                self.writer.add_scalar('Duration_Loss/train', dur_length_loss, model.get_step())
                 self.writer.add_scalar('Params/batch_size', session.bs, model.get_step())
                 self.writer.add_scalar('Params/learning_rate', session.lr, model.get_step())
 
