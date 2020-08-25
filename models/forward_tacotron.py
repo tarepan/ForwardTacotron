@@ -156,7 +156,8 @@ class ForwardTacotron(nn.Module):
         x = x.transpose(1, 2)
         x_p = x
 
-        token_lengths = self.dur_pred(x)
+        #token_lengths = self.dur_pred(x)
+        token_lengths = durs
         token_lengths = token_lengths.squeeze()
 
         if random.random() < 0.01:
