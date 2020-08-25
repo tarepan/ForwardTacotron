@@ -74,8 +74,8 @@ class ForwardTrainer:
                 m1_hat, m2_hat, dur_sum, dur_hat = model(x, m, x_lens, mel_lens, dur, out_offset=out_offset)
                 duration_tensors.append(dur_hat.flatten())
 
-                m1_loss = self.l1_loss(m1_hat, m, mel_lens)
-                m2_loss = F.mse_loss(m2_hat, m)
+                m1_loss = F.l1_loss(m1_hat, m)
+                m2_loss = F.l1_loss(m2_hat, m)
 
                 dur_loss = 1e-2*F.mse_loss(dur_sum.float(), mel_lens.float())
 
