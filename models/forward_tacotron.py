@@ -47,7 +47,7 @@ class DurationPredictor(nn.Module):
         super().__init__()
         self.convs = torch.nn.ModuleList([
             BatchNorm1d(in_dims),
-            BatchNormConv(in_dims, conv_dims, 5, activation=torch.relu),
+            BatchNormConv(in_dims, conv_dims, 3, activation=torch.relu),
             BatchNormConv(conv_dims, 1, 1, activation=torch.relu),
         ])
 
