@@ -47,6 +47,7 @@ class DurationPredictor(nn.Module):
         super().__init__()
         self.convs = torch.nn.ModuleList([
             BatchNorm1d(in_dims),
+            nn.ReLU(),
             BatchNormConv(in_dims, conv_dims, 1, activation=torch.relu),
             BatchNormConv(conv_dims, 1, 1, activation=torch.relu),
         ])
@@ -96,13 +97,12 @@ class ConvBlock(nn.Module):
         super(ConvBlock, self).__init__()
         self.blocks = nn.ModuleList([
             nn.Sequential(
+                nn.BatchNorm1d(channel),
                 nn.ReLU(),
                 nn.Conv1d(channel, channel, kernel_size=3, dilation=a, padding=a),
                 nn.BatchNorm1d(channel),
                 nn.ReLU(),
                 nn.Conv1d(channel, channel, kernel_size=3, dilation=b, padding=b),
-                nn.BatchNorm1d(channel),
-                nn.ReLU(),
             )
             for a, b in [(1, 2), (4, 8), (16, 32)]
         ])

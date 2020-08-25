@@ -67,6 +67,7 @@ class ForwardTrainer:
 
                 min_index = max(0, m.shape[2]-200)
                 out_offset = random.randint(0, min_index)
+
                 out_seq_len = min(200, m.shape[2])
                 m = m[:, :, out_offset:out_offset+out_seq_len]
 
