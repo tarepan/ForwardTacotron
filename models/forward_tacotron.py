@@ -139,11 +139,11 @@ class ForwardTacotron(nn.Module):
         self.embedding = nn.Embedding(num_chars, embed_dims)
         self.lr = LengthRegulator()
         self.dur_pred = DurationPredictor(256, conv_dims=durpred_conv_dims)
-        self.prenet = ConvStack(embed_dims, layers=10)
+        self.prenet = ConvStack(embed_dims, layers=2)
 
         self.lin = torch.nn.Linear(2 * rnn_dim, n_mels)
         self.register_buffer('step', torch.zeros(1, dtype=torch.long))
-        self.postnet = ConvStack(256, layers=10)
+        self.postnet = ConvStack(256, layers=2)
         self.post_proj = nn.Linear(256, n_mels, bias=False)
 
     def forward(self, x, mel, x_lens, mel_lens, durs, out_offset=0, out_seq_len=None):
@@ -157,7 +157,7 @@ class ForwardTacotron(nn.Module):
         x_p = x
 
         token_lengths = self.dur_pred(x)
-        token_lengths = durs
+        #token_lengths = durs
         token_lengths = token_lengths.squeeze()
 
         if random.random() < 0.01:
