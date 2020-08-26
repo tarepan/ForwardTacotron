@@ -139,11 +139,11 @@ class ForwardTacotron(nn.Module):
         self.embedding = nn.Embedding(num_chars, embed_dims)
         self.lr = LengthRegulator()
         self.dur_pred = DurationPredictor(256, conv_dims=durpred_conv_dims)
-        self.prenet = ConvStack(embed_dims, layers=2)
+        self.prenet = torch.nn.GRU(embed_dims, 128, bidirectional=True)
 
         self.lin = torch.nn.Linear(2 * rnn_dim, n_mels)
         self.register_buffer('step', torch.zeros(1, dtype=torch.long))
-        self.postnet = torch.nn.Conv1d(256, 256, 5, padding=2)
+        self.postnet = torch.nn.GRU(256, 128, bidirectional=True)
         self.post_proj = nn.Linear(256, n_mels, bias=False)
 
     def forward(self, x, mel, x_lens, mel_lens, durs, out_offset=0, out_seq_len=None):
@@ -151,9 +151,9 @@ class ForwardTacotron(nn.Module):
             self.step += 1
 
         x = self.embedding(x)
-        x = x.transpose(1, 2)
-        x = self.prenet(x)
-        x = x.transpose(1, 2)
+        #x = x.transpose(1, 2)
+        x, _ = self.prenet(x)
+        #x = x.transpose(1, 2)
         x_p = x
 
         token_lengths = self.dur_pred(x)
@@ -173,7 +173,9 @@ class ForwardTacotron(nn.Module):
         mask = mask.to(device)
 
         token_ends = torch.cumsum(token_lengths, dim=1)
-        aligned_lengths = token_ends.gather(1, x_lens.unsqueeze(1)-1).squeeze()
+
+        #aligned_lengths = token_ends.gather(1, x_lens.unsqueeze(1)-1).squeeze()
+        aligned_lengths = torch.sum(token_lengths, dim=1)
 
         #for i in range(bs):
         #    token_lengths[i] = token_lengths[i] / aligned_lengths[i].detach() * mel_lens[i]
@@ -193,9 +195,9 @@ class ForwardTacotron(nn.Module):
         weights = torch.softmax(masked_logits, dim=2)
 
         x = torch.einsum('bij,bjk->bik', weights, x_p)
-        x = x.transpose(1, 2)
-        x_post = self.postnet(x)
-        x_post = x_post.transpose(1, 2)
+        #x = x.transpose(1, 2)
+        x_post, _ = self.postnet(x)
+        #x_post = x_post.transpose(1, 2)
         x_post = self.post_proj(x_post)
         x_post = x_post.transpose(1, 2)
 
