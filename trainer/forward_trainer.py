@@ -78,8 +78,8 @@ class ForwardTrainer:
                 m1_loss = F.l1_loss(m1_hat, m)
                 m2_loss = F.l1_loss(m2_hat, m)
                 dur_loss = 1e-1*F.mse_loss(dur_sum.float(), mel_lens.float())
-                if model.get_step() % 1000 == 0:
-                    print(f'dur_sum {dur_sum} mel_lens {mel_lens} dur loss {dur_loss}')
+                #if model.get_step() % 1000 == 0:
+                #    print(f'dur_sum {dur_sum} mel_lens {mel_lens} dur loss {dur_loss}')
 
                 dur_length_loss = F.l1_loss(dur_hat, dur)
 
@@ -114,8 +114,9 @@ class ForwardTrainer:
 
                 stream(msg)
 
-            #m_val_loss, dur_val_loss = self.evaluate(model, session.val_set)
-            #self.writer.add_scalar('Mel_Loss/val', m_val_loss, model.get_step())
+            m_val_loss, dur_val_loss = self.evaluate(model, session.val_set)
+            self.writer.add_scalar('Mel_Loss/val', m_val_loss, model.get_step())
+            self.writer.add_scalar('Duration_Sum_Loss/val', m_val_loss, model.get_step())
             duration_concat = torch.cat(duration_tensors, dim=0)
             self.writer.add_histogram('Duration_Histo/train', duration_concat, model.get_step())
             save_checkpoint('forward', self.paths, model, optimizer, is_silent=True)
@@ -125,18 +126,20 @@ class ForwardTrainer:
             dur_loss_avg.reset()
             print(' ')
 
-    def evaluate(self, model: ForwardTacotron, val_set: Dataset) -> float:
+    def evaluate(self, model: ForwardTacotron, val_set: Dataset) -> Tuple[float, float]:
         model.eval()
         m_val_loss = 0
+        dur_val_loss = 0
         device = next(model.parameters()).device
         for i, (x, m, ids, x_lens, mel_lens, dur) in enumerate(val_set, 1):
             x, m, dur, x_lens, mel_lens = x.to(device), m.to(device), dur.to(device), x_lens.to(device), mel_lens.to(device)
             with torch.no_grad():
                 m1_hat, m2_hat, dur_len_hat, dur_hat = model(x, m, x_lens, mel_lens, dur)
-                m1_loss = F.l1_loss(m1_hat, m)
                 m2_loss = F.l1_loss(m2_hat, m)
-                m_val_loss += m1_loss.item() + m2_loss.item()
-        return m_val_loss / len(val_set)
+                dur_sum_loss = 1e-1*F.mse_loss(dur_len_hat.float(), mel_lens.float())
+                m_val_loss += m2_loss.item()
+                dur_val_loss += dur_sum_loss
+        return m_val_loss / len(val_set), dur_val_loss / len(val_set)
 
     @ignore_exception
     def generate_plots(self, model: ForwardTacotron, session: TTSSession) -> None:
