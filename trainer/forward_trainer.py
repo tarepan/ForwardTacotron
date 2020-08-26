@@ -143,6 +143,7 @@ class ForwardTrainer:
         x, m, x_lens, dur = x.to(device), m.to(device), x_lens.to(device), dur.to(device)
 
         m1_hat, m2_hat, dur_len_hat, dur_hat = model(x, m, x_lens, mel_lens, dur)
+        print(f'mel lens {mel_lens} dur sums {torch.sum(dur_hat, dim=1)}')
         m1_hat = np_now(m1_hat)[0, :600, :]
         m2_hat = np_now(m2_hat)[0, :600, :]
         m = np_now(m)[0, :600, :]

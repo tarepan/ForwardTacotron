@@ -163,7 +163,7 @@ class ForwardTacotron(nn.Module):
         #token_lengths = durs
         token_lengths = token_lengths.squeeze()
 
-        if random.random() < 0.01:
+        if random.random() < 0.:
             print(f'durs: {token_lengths[0]}')
 
         device = next(self.parameters()).device
@@ -175,11 +175,8 @@ class ForwardTacotron(nn.Module):
         token_ends = torch.cumsum(token_lengths, dim=1)
         aligned_lengths = token_ends.gather(1, x_lens.unsqueeze(1)-1).squeeze()
 
-        if self.get_step() > 1000:
-            for i in range(bs):
-                token_lengths[i] = token_lengths[i] / aligned_lengths[i].detach() * mel_lens[i]
-        if self.eval and int(bs) == 1:
-            print(f'eval token sums: {torch.sum(token_lengths, dim=1)}')
+        for i in range(bs):
+            token_lengths[i] = token_lengths[i] / aligned_lengths[i].detach() * mel_lens[i]
 
         token_centres = token_ends - (token_lengths / 2.)
 
