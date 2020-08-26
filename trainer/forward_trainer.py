@@ -67,7 +67,6 @@ class ForwardTrainer:
 
                 #min_index = max(0, m.shape[2]-200)
                 #out_offset = random.randint(0, min_index)
-
                 #out_seq_len = min(200, m.shape[2])
                 #m = m[:, :, out_offset:out_offset+out_seq_len]
 
@@ -78,8 +77,6 @@ class ForwardTrainer:
                 m1_loss = F.l1_loss(m1_hat, m)
                 m2_loss = F.l1_loss(m2_hat, m)
                 dur_loss = 1e-1*F.mse_loss(dur_sum.float(), mel_lens.float())
-                #if model.get_step() % 1000 == 0:
-                #    print(f'dur_sum {dur_sum} mel_lens {mel_lens} dur loss {dur_loss}')
 
                 dur_length_loss = F.l1_loss(dur_hat, dur)
 
