@@ -178,6 +178,8 @@ class ForwardTacotron(nn.Module):
         if self.get_step() > 1000:
             for i in range(bs):
                 token_lengths[i] = token_lengths[i] / aligned_lengths[i].detach() * mel_lens[i]
+        if self.eval:
+            print(f'eval token sums: {torch.sum(token_lengths, dim=1)}')
 
         token_centres = token_ends - (token_lengths / 2.)
 
