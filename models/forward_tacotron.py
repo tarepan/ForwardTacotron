@@ -173,12 +173,7 @@ class ForwardTacotron(nn.Module):
         mask = mask.to(device)
 
         token_ends = torch.cumsum(token_lengths, dim=1)
-
-        #aligned_lengths = token_ends.gather(1, x_lens.unsqueeze(1)-1).squeeze()
-        aligned_lengths = torch.sum(token_lengths, dim=1)
-
-        #for i in range(bs):
-        #    token_lengths[i] = token_lengths[i] / aligned_lengths[i].detach() * mel_lens[i]
+        aligned_lengths = token_ends.gather(1, x_lens.unsqueeze(1)-1).squeeze()
 
         token_centres = token_ends - (token_lengths / 2.)
 
