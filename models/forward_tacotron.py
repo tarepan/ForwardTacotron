@@ -157,6 +157,9 @@ class ForwardTacotron(nn.Module):
         x_p = x
 
         token_lengths = self.dur_pred(x)
+
+        bs = token_lengths.shape[0]
+
         #token_lengths = durs
         token_lengths = token_lengths.squeeze()
 
@@ -171,6 +174,10 @@ class ForwardTacotron(nn.Module):
 
         token_ends = torch.cumsum(token_lengths, dim=1)
         aligned_lengths = token_ends.gather(1, x_lens.unsqueeze(1)-1).squeeze()
+
+        for i in range(bs):
+            token_lengths[i] = token_lengths[i] / aligned_lengths[i].detach() * mel_lens[i]
+
         token_centres = token_ends - (token_lengths / 2.)
 
         out_seq_len = mel.shape[-1]
