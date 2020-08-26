@@ -147,6 +147,8 @@ class ForwardTacotron(nn.Module):
         self.post_proj = nn.Linear(256, n_mels, bias=False)
 
     def forward(self, x, mel, x_lens, mel_lens, durs, out_offset=0, out_seq_len=None):
+        device = next(self.parameters()).device
+
         if self.training:
             self.step += 1
 
@@ -157,16 +159,7 @@ class ForwardTacotron(nn.Module):
         x_p = x
 
         token_lengths = self.dur_pred(x)
-
-        bs = token_lengths.shape[0]
-
-        #token_lengths = durs
-        token_lengths = token_lengths.squeeze()
-
-        if random.random() < 0.:
-            print(f'durs: {token_lengths[0]}')
-
-        device = next(self.parameters()).device
+        token_lengths = token_lengths.squeeze(1)
 
         sequence_length = x.shape[1]
         mask = torch.arange(sequence_length)[None, :].to(device) < x_lens[:, None]
