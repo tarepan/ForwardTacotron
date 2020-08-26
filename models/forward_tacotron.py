@@ -143,7 +143,7 @@ class ForwardTacotron(nn.Module):
 
         self.lin = torch.nn.Linear(2 * rnn_dim, n_mels)
         self.register_buffer('step', torch.zeros(1, dtype=torch.long))
-        self.postnet = ConvStack(256, layers=2)
+        self.postnet = torch.nn.Conv1d(256, 256, 5, padding=2)
         self.post_proj = nn.Linear(256, n_mels, bias=False)
 
     def forward(self, x, mel, x_lens, mel_lens, durs, out_offset=0, out_seq_len=None):
@@ -175,8 +175,8 @@ class ForwardTacotron(nn.Module):
         token_ends = torch.cumsum(token_lengths, dim=1)
         aligned_lengths = token_ends.gather(1, x_lens.unsqueeze(1)-1).squeeze()
 
-        for i in range(bs):
-            token_lengths[i] = token_lengths[i] / aligned_lengths[i].detach() * mel_lens[i]
+        #for i in range(bs):
+        #    token_lengths[i] = token_lengths[i] / aligned_lengths[i].detach() * mel_lens[i]
 
         token_centres = token_ends - (token_lengths / 2.)
 
