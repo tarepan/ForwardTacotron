@@ -66,12 +66,12 @@ class ForwardTrainer:
                 x, m, dur, x_lens, mel_lens = x.to(device), m.to(device), dur.to(device), x_lens.to(device), mel_lens.to(device)
 
                 min_index = max(0, m.shape[2]-200)
-                out_offset = random.randint(0, min_index)
+                #out_offset = random.randint(0, min_index)
 
-                out_seq_len = min(200, m.shape[2])
-                m = m[:, :, out_offset:out_offset+out_seq_len]
+                #out_seq_len = min(200, m.shape[2])
+                #m = m[:, :, out_offset:out_offset+out_seq_len]
 
-                m1_hat, m2_hat, dur_sum, dur_hat = model(x, m, x_lens, mel_lens, dur, out_offset=out_offset)
+                m1_hat, m2_hat, dur_sum, dur_hat = model(x, m, x_lens, mel_lens, dur, out_offset=0)
 
                 duration_tensors.append(dur_hat.flatten())
 
