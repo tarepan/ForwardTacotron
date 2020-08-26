@@ -159,7 +159,7 @@ class ForwardTacotron(nn.Module):
         x_p = x
 
         token_lengths = self.dur_pred(x)
-        token_lengths = token_lengths.squeeze(1)
+        token_lengths = token_lengths.squeeze(2)
 
         sequence_length = x.shape[1]
         mask = torch.arange(sequence_length)[None, :].to(device) < x_lens[:, None]
