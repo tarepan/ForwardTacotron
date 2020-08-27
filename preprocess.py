@@ -10,7 +10,7 @@ import pickle
 import argparse
 
 from utils.text import clean_text
-from utils.text.recipes import ljspeech
+from utils.text.recipes import ljspeech, libri_tts
 from utils.files import get_files, pickle_binary
 from pathlib import Path
 
@@ -21,6 +21,7 @@ def valid_n_workers(num):
     if n < 1:
         raise argparse.ArgumentTypeError('%r must be an integer greater than 0' % num)
     return n
+
 
 parser = argparse.ArgumentParser(description='Preprocessing for WaveRNN and Tacotron')
 parser.add_argument('--path', '-p', help='directly point to dataset path (overrides hparams.wav_path')
@@ -72,10 +73,7 @@ if len(wav_files) == 0:
     print('or use the --path option.\n')
 
 else:
-    text_dict = ljspeech(path)
-
     n_workers = max(1, args.num_workers)
-
     simple_table([
         ('Sample Rate', hp.sample_rate),
         ('Bit Depth', hp.bits),
@@ -84,14 +82,18 @@ else:
         ('CPU Usage', f'{n_workers}/{cpu_count()}'),
         ('Num Validation', hp.n_val)
     ])
-
+    print('Creating dict...')
+    text_dict, speaker_id_dict = libri_tts(path, n_workers=n_workers)
     pool = Pool(processes=n_workers)
     dataset = []
     cleaned_texts = []
+    print('\nCreating mels...')
     for i, (item_id, length, cleaned_text) in enumerate(pool.imap_unordered(process_wav, wav_files), 1):
         if item_id in text_dict:
             dataset += [(item_id, length)]
             cleaned_texts += [(item_id, cleaned_text)]
+        else:
+            print(f'Entry not found for id: {item_id}')
         bar = progbar(i, len(wav_files))
         message = f'{bar} {i}/{len(wav_files)} '
         stream(message)
@@ -107,6 +109,7 @@ else:
         text_dict[id] = text
 
     pickle_binary(text_dict, paths.data/'text_dict.pkl')
+    pickle_binary(speaker_id_dict, paths.data/'speaker_id_dict.pkl')
     pickle_binary(train_dataset, paths.data/'train_dataset.pkl')
     pickle_binary(val_dataset, paths.data/'val_dataset.pkl')
 
