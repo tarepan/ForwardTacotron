@@ -162,17 +162,16 @@ class TacoTrainer:
         target_sid = int(s_id[0].cpu())
         gen_speaker_ids = [token_speaker_dict[target_sid]] + hp.tts_gen_speaker_ids
 
-        for gen_speaker_id in gen_speaker_ids:
+        for idx, gen_speaker_id in enumerate(gen_speaker_ids):
             s_id = speaker_token_dict[gen_speaker_id]
             m1_hat, m2_hat, att = model.generate(x[0].tolist(), s_id, steps=lens[0] + 20)
             att_fig = plot_attention(att)
             m1_hat_fig = plot_mel(m1_hat)
             m2_hat_fig = plot_mel(m2_hat)
-
-            self.writer.add_figure(f'Generated_SID_{gen_speaker_id}/attention', att_fig, model.step)
-            self.writer.add_figure(f'Generated_SID_{gen_speaker_id}/target', m_fig, model.step)
-            self.writer.add_figure(f'Generated_SID_{gen_speaker_id}/linear', m1_hat_fig, model.step)
-            self.writer.add_figure(f'Generated_SID_{gen_speaker_id}/postnet', m2_hat_fig, model.step)
+            self.writer.add_figure(f'Generated_{idx}_SID_{gen_speaker_id}/attention', att_fig, model.step)
+            self.writer.add_figure(f'Generated_{idx}_SID_{gen_speaker_id}/target', m_fig, model.step)
+            self.writer.add_figure(f'Generated_{idx}_SID_{gen_speaker_id}/linear', m1_hat_fig, model.step)
+            self.writer.add_figure(f'Generated_{idx}_SID_{gen_speaker_id}/postnet', m2_hat_fig, model.step)
 
             m2_hat_wav = reconstruct_waveform(m2_hat)
 
