@@ -119,6 +119,16 @@ def plot_mel(mel: np.array) -> Figure:
     return fig
 
 
+def plot_cos_matrix(matrix: np.array, labels: list) -> Figure:
+    fig, ax = plt.subplots()
+    ax.imshow(matrix)
+    ax.set_xticks(np.arange(len(labels)))
+    ax.set_yticks(np.arange(len(labels)))
+    ax.set_xticklabels(labels)
+    ax.set_yticklabels(labels)
+    return fig
+
+
 def plot_attention(attn: np.array) -> Figure:
     fig = plt.figure(figsize=(12, 6))
     plt.imshow(attn.T, interpolation='nearest', aspect='auto')

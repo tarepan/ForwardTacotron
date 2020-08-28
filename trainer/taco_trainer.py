@@ -1,19 +1,21 @@
 import time
 
 import torch
+import numpy as np
 import torch.nn.functional as F
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import Dataset
 from torch.utils.tensorboard import SummaryWriter
-
+from sklearn.metrics.pairwise import cosine_similarity
 from models.tacotron import Tacotron
 from trainer.common import Averager, TTSSession
 from utils import hparams as hp
 from utils.checkpoints import save_checkpoint
 from utils.dataset import get_tts_datasets
 from utils.decorators import ignore_exception
-from utils.display import stream, simple_table, plot_mel, plot_attention
+from utils.display import stream, simple_table, plot_mel, plot_attention, plot_cos_matrix
 from utils.dsp import reconstruct_waveform, np_now
+from utils.files import unpickle_binary
 from utils.paths import Paths
 
 
@@ -115,6 +117,18 @@ class TacoTrainer:
     @ignore_exception
     def generate_plots(self, model: Tacotron, session: TTSSession) -> None:
         model.eval()
+
+        # plot speaker cosine similarity matrix
+        speaker_token_dict = unpickle_binary(self.paths.data / 'speaker_token_dict.pkl')
+        speaker_ids = sorted(list(speaker_token_dict.keys()))[:20]
+        speaker_tokens = [torch.tensor(speaker_token_dict[s_id]) for s_id in speaker_ids]
+        speaker_tokens = torch.tensor(speaker_tokens)
+        embeddings = model.speaker_embedding(speaker_tokens).detach().numpy()
+        cos_mat = cosine_similarity(embeddings)
+        np.fill_diagonal(cos_mat, 0)
+        cos_mat_fig = plot_cos_matrix(cos_mat, labels=speaker_ids)
+        self.writer.add_figure('Embedding_Metrics/speaker_cosine_dist', cos_mat_fig, model.step)
+
         device = next(model.parameters()).device
         s_id, x, m, ids, lens = session.val_sample
         x, m, s_id = x.to(device), m.to(device), s_id.to(device)
@@ -163,3 +177,4 @@ class TacoTrainer:
         self.writer.add_audio(
             tag='Generated/postnet_wav', snd_tensor=m2_hat_wav,
             global_step=model.step, sample_rate=hp.sample_rate)
+
