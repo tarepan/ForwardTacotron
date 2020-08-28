@@ -126,6 +126,7 @@ def plot_cos_matrix(matrix: np.array, labels: list) -> Figure:
     ax.set_yticks(np.arange(len(labels)))
     ax.set_xticklabels(labels)
     ax.set_yticklabels(labels)
+
     plt.setp(ax.get_xticklabels(), rotation=45, ha="right",
              rotation_mode="anchor")
     return fig

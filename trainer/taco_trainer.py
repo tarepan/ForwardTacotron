@@ -176,9 +176,9 @@ class TacoTrainer:
             m2_hat_wav = reconstruct_waveform(m2_hat)
 
             self.writer.add_audio(
-                tag=f'Generated_SID_{gen_speaker_id}/target_wav', snd_tensor=target_wav,
+                tag=f'Generated_{idx}_SID_{gen_speaker_id}/target_wav', snd_tensor=target_wav,
                 global_step=model.step, sample_rate=hp.sample_rate)
             self.writer.add_audio(
-                tag=f'Generated_SID{gen_speaker_id}/postnet_wav', snd_tensor=m2_hat_wav,
+                tag=f'Generated_{idx}_SID_{gen_speaker_id}/postnet_wav', snd_tensor=m2_hat_wav,
                 global_step=model.step, sample_rate=hp.sample_rate)
 
