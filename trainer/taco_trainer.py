@@ -123,6 +123,7 @@ class TacoTrainer:
 
         # plot speaker cosine similarity matrix
         speaker_token_dict = unpickle_binary(self.paths.data / 'speaker_token_dict.pkl')
+        token_speaker_dict = {v: k for k, v in speaker_token_dict.items()}
         speaker_ids = sorted(list(speaker_token_dict.keys()))[:20]
         speaker_tokens = [torch.tensor(speaker_token_dict[s_id]) for s_id in speaker_ids]
         speaker_tokens = torch.tensor(speaker_tokens).to(device)
@@ -158,25 +159,26 @@ class TacoTrainer:
             tag='Ground_Truth_Aligned/postnet_wav', snd_tensor=m2_hat_wav,
             global_step=model.step, sample_rate=hp.sample_rate)
 
-        gen_speaker_tokens = [speaker_token_dict[s_id] for s_id in hp.tts_gen_speaker_ids]
+        gen_speaker_ids = [token_speaker_dict[s_id[0]]] + hp.tts_gen_speaker_ids
 
-        for s_id in gen_speaker_tokens:
+        for gen_speaker_id in gen_speaker_ids:
+            s_id = speaker_token_dict[gen_speaker_id]
             m1_hat, m2_hat, att = model.generate(x[0].tolist(), s_id, steps=lens[0] + 20)
             att_fig = plot_attention(att)
             m1_hat_fig = plot_mel(m1_hat)
             m2_hat_fig = plot_mel(m2_hat)
 
-            self.writer.add_figure(f'Generated_SID_{s_id}/attention', att_fig, model.step)
-            self.writer.add_figure(f'Generated_SID_{s_id}/target', m_fig, model.step)
-            self.writer.add_figure(f'Generated_SID_{s_id}/linear', m1_hat_fig, model.step)
-            self.writer.add_figure(f'Generated_SID_{s_id}/postnet', m2_hat_fig, model.step)
+            self.writer.add_figure(f'Generated_SID_{gen_speaker_id}/attention', att_fig, model.step)
+            self.writer.add_figure(f'Generated_SID_{gen_speaker_id}/target', m_fig, model.step)
+            self.writer.add_figure(f'Generated_SID_{gen_speaker_id}/linear', m1_hat_fig, model.step)
+            self.writer.add_figure(f'Generated_SID_{gen_speaker_id}/postnet', m2_hat_fig, model.step)
 
             m2_hat_wav = reconstruct_waveform(m2_hat)
 
             self.writer.add_audio(
-                tag='Generated/target_wav', snd_tensor=target_wav,
+                tag=f'Generated_SID_{gen_speaker_id}/target_wav', snd_tensor=target_wav,
                 global_step=model.step, sample_rate=hp.sample_rate)
             self.writer.add_audio(
-                tag='Generated/postnet_wav', snd_tensor=m2_hat_wav,
+                tag=f'Generated_SID{gen_speaker_id}/postnet_wav', snd_tensor=m2_hat_wav,
                 global_step=model.step, sample_rate=hp.sample_rate)
 
