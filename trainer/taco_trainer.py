@@ -117,21 +117,21 @@ class TacoTrainer:
     @ignore_exception
     def generate_plots(self, model: Tacotron, session: TTSSession) -> None:
         model.eval()
+        device = next(model.parameters()).device
+        s_id, x, m, ids, lens = session.val_sample
+        x, m, s_id = x.to(device), m.to(device), s_id.to(device)
 
         # plot speaker cosine similarity matrix
         speaker_token_dict = unpickle_binary(self.paths.data / 'speaker_token_dict.pkl')
         speaker_ids = sorted(list(speaker_token_dict.keys()))[:20]
         speaker_tokens = [torch.tensor(speaker_token_dict[s_id]) for s_id in speaker_ids]
-        speaker_tokens = torch.tensor(speaker_tokens)
-        embeddings = model.speaker_embedding(speaker_tokens).detach().numpy()
+        speaker_tokens = torch.tensor(speaker_tokens).to(device)
+        embeddings = model.speaker_embedding(speaker_tokens).detach().cpu().numpy()
         cos_mat = cosine_similarity(embeddings)
         np.fill_diagonal(cos_mat, 0)
         cos_mat_fig = plot_cos_matrix(cos_mat, labels=speaker_ids)
         self.writer.add_figure('Embedding_Metrics/speaker_cosine_dist', cos_mat_fig, model.step)
 
-        device = next(model.parameters()).device
-        s_id, x, m, ids, lens = session.val_sample
-        x, m, s_id = x.to(device), m.to(device), s_id.to(device)
 
         m1_hat, m2_hat, att = model(x, m, s_id)
         att = np_now(att)[0]
