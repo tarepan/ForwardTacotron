@@ -101,7 +101,7 @@ tts_max_mel_len = 1250              # if you have a couple of extremely long spe
 tts_clip_grad_norm = 1.0            # clips the gradient norm to prevent explosion - set to None if not needed
 tts_checkpoint_every = 10_000        # checkpoints the model every X steps
 tts_plot_every = 1
-tts_gen_speaker_ids = [237, 260] #[19, 26, 32]
+tts_gen_speaker_ids = [19, 26, 32]
 
 # ------------------------------------------------------------------------------------------------------------------#
 
