@@ -6,6 +6,8 @@ import torch.nn.functional as F
 from pathlib import Path
 from typing import Union
 
+from torch.nn import Embedding
+
 
 class HighwayNetwork(nn.Module):
     def __init__(self, size):
@@ -215,7 +217,7 @@ class Decoder(nn.Module):
         self.n_mels = n_mels
         self.prenet = PreNet(n_mels)
         self.attn_net = LSA(decoder_dims)
-        self.attn_rnn = nn.GRUCell(decoder_dims + decoder_dims // 2, decoder_dims)
+        self.attn_rnn = nn.GRUCell(decoder_dims + 128, decoder_dims)
         self.rnn_input = nn.Linear(2 * decoder_dims, lstm_dims)
         self.res_rnn1 = nn.LSTMCell(lstm_dims, lstm_dims)
         self.res_rnn2 = nn.LSTMCell(lstm_dims, lstm_dims)
@@ -241,6 +243,7 @@ class Decoder(nn.Module):
 
         # Compute the Attention RNN hidden state
         attn_rnn_in = torch.cat([context_vec, prenet_out], dim=-1)
+
         attn_hidden = self.attn_rnn(attn_rnn_in.squeeze(1), attn_hidden)
 
         # Compute the attention scores
@@ -281,15 +284,17 @@ class Decoder(nn.Module):
 
 class Tacotron(nn.Module):
     def __init__(self, embed_dims, num_chars, encoder_dims, decoder_dims, n_mels, fft_bins, postnet_dims,
-                 encoder_K, lstm_dims, postnet_K, num_highways, dropout, stop_threshold):
+                 encoder_K, lstm_dims, postnet_K, num_highways, dropout, stop_threshold, num_speakers, speaker_emb_dim=128):
         super().__init__()
         self.n_mels = n_mels
+
+        self.speaker_embedding = Embedding(num_speakers, speaker_emb_dim)
         self.lstm_dims = lstm_dims
-        self.decoder_dims = decoder_dims
+        self.decoder_dims = decoder_dims + speaker_emb_dim
         self.encoder = Encoder(embed_dims, num_chars, encoder_dims,
                                encoder_K, num_highways, dropout)
-        self.encoder_proj = nn.Linear(decoder_dims, decoder_dims, bias=False)
-        self.decoder = Decoder(n_mels, decoder_dims, lstm_dims)
+        self.encoder_proj = nn.Linear(self.decoder_dims, self.decoder_dims, bias=False)
+        self.decoder = Decoder(n_mels, self.decoder_dims, lstm_dims)
         self.postnet = CBHG(postnet_K, n_mels, postnet_dims, [256, 80], num_highways)
         self.post_proj = nn.Linear(postnet_dims * 2, fft_bins, bias=False)
 
@@ -307,7 +312,7 @@ class Tacotron(nn.Module):
     def r(self, value):
         self.decoder.r = self.decoder.r.new_tensor(value, requires_grad=False)
 
-    def forward(self, x, m, generate_gta=False):
+    def forward(self, x, m, s_id, generate_gta=False):
         device = next(self.parameters()).device  # use same device as parameters
 
         if self.training:
@@ -335,6 +340,9 @@ class Tacotron(nn.Module):
         # Project the encoder outputs to avoid
         # unnecessary matmuls in the decoder loop
         encoder_seq = self.encoder(x)
+        speaker_emb = self.speaker_embedding(s_id)[:, None, :]
+        speaker_emb = speaker_emb.repeat(1, encoder_seq.shape[1], 1)
+        encoder_seq = torch.cat([encoder_seq, speaker_emb], dim=2)
         encoder_seq_proj = self.encoder_proj(encoder_seq)
 
         # Need a couple of lists for outputs
@@ -412,8 +420,6 @@ class Tacotron(nn.Module):
         # Post-Process for Linear Spectrograms
         postnet_out = self.postnet(mel_outputs)
         linear = self.post_proj(postnet_out)
-
-
         linear = linear.transpose(1, 2)[0].cpu().data.numpy()
         mel_outputs = mel_outputs[0].cpu().data.numpy()
 

@@ -70,6 +70,10 @@ voc_overlap = 550                   # number of samples for crossfading between 
 # TACOTRON TTS -----------------------------------------------------------------------------------------------------#
 
 # Model Hparams
+
+max_num_speakers = 100
+speaker_emb_dim = 128
+
 tts_embed_dims = 256                # embedding dimension for the graphemes/phoneme inputs
 tts_encoder_dims = 128
 tts_decoder_dims = 256

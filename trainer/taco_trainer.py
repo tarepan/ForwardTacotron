@@ -52,12 +52,12 @@ class TacoTrainer:
         duration_avg = Averager()
         device = next(model.parameters()).device  # use same device as model parameters
         for e in range(1, epochs + 1):
-            for i, (x, m, ids, _) in enumerate(session.train_set, 1):
+            for i, (s_id, x, m, ids, _) in enumerate(session.train_set, 1):
                 start = time.time()
                 model.train()
-                x, m = x.to(device), m.to(device)
+                x, m, s_id = x.to(device), m.to(device), s_id.to(device)
 
-                m1_hat, m2_hat, attention = model(x, m)
+                m1_hat, m2_hat, attention = model(x, m, s_id)
 
                 m1_loss = F.l1_loss(m1_hat, m)
                 m2_loss = F.l1_loss(m2_hat, m)
@@ -102,10 +102,11 @@ class TacoTrainer:
         model.eval()
         val_loss = 0
         device = next(model.parameters()).device
-        for i, (x, m, ids, _) in enumerate(val_set, 1):
-            x, m = x.to(device), m.to(device)
+        for i, (s_id, x, m, ids, _) in enumerate(val_set, 1):
+            x, m, s_id = x.to(device), m.to(device), s_id.to(device)
+
             with torch.no_grad():
-                m1_hat, m2_hat, attention = model(x, m)
+                m1_hat, m2_hat, attention = model(x, m, s_id)
                 m1_loss = F.l1_loss(m1_hat, m)
                 m2_loss = F.l1_loss(m2_hat, m)
                 val_loss += m1_loss.item() + m2_loss.item()

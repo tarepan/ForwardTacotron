@@ -44,19 +44,13 @@ def convert_file(path: Path):
     if hp.peak_norm or peak > 1.0:
         y /= peak
     mel = melspectrogram(y)
-    if hp.voc_mode == 'RAW':
-        quant = encode_mu_law(y, mu=2**hp.bits) if hp.mu_law else float_2_label(y, bits=hp.bits)
-    elif hp.voc_mode == 'MOL':
-        quant = float_2_label(y, bits=16)
-
-    return mel.astype(np.float32), quant.astype(np.int64)
+    return mel.astype(np.float32)
 
 
 def process_wav(path: Path):
     wav_id = path.stem
-    m, x = convert_file(path)
+    m = convert_file(path)
     np.save(paths.mel/f'{wav_id}.npy', m, allow_pickle=False)
-    np.save(paths.quant/f'{wav_id}.npy', x, allow_pickle=False)
     text = text_dict[wav_id]
     text = clean_text(text)
     return wav_id, m.shape[-1], text
@@ -83,7 +77,10 @@ else:
         ('Num Validation', hp.n_val)
     ])
     print('Creating dict...')
-    text_dict, speaker_id_dict = libri_tts(path, n_workers=n_workers)
+    text_dict, speaker_dict = libri_tts(path, n_workers=n_workers)
+    speakers = sorted(list(set(speaker_dict.values())))
+    speaker_token_dict = {sp_id: i for i, sp_id in enumerate(speakers)}
+
     pool = Pool(processes=n_workers)
     dataset = []
     cleaned_texts = []
@@ -109,7 +106,8 @@ else:
         text_dict[id] = text
 
     pickle_binary(text_dict, paths.data/'text_dict.pkl')
-    pickle_binary(speaker_id_dict, paths.data/'speaker_id_dict.pkl')
+    pickle_binary(speaker_dict, paths.data/'speaker_dict.pkl')
+    pickle_binary(speaker_token_dict, paths.data/'speaker_token_dict.pkl')
     pickle_binary(train_dataset, paths.data/'train_dataset.pkl')
     pickle_binary(val_dataset, paths.data/'val_dataset.pkl')
 

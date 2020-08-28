@@ -30,7 +30,7 @@ def libri_tts(path: Union[str, Path], n_workers, extension='.normalized.txt') ->
         bar = progbar(i, len(files))
         message = f'{bar} {i}/{len(files)} '
         text_id = file.name.replace(extension, '')
-        speaker_id = file.parent.parent.stem
+        speaker_id = int(file.parent.parent.stem)
         text_dict[text_id] = text
         speaker_id_dict[text_id] = speaker_id
         stream(message)

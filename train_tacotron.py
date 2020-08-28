@@ -111,7 +111,10 @@ if __name__ == '__main__':
                      postnet_K=hp.tts_postnet_K,
                      num_highways=hp.tts_num_highways,
                      dropout=hp.tts_dropout,
-                     stop_threshold=hp.tts_stop_threshold).to(device)
+                     stop_threshold=hp.tts_stop_threshold,
+                     num_speakers=hp.max_num_speakers,
+                     speaker_emb_dim=hp.speaker_emb_dim,
+                     ).to(device)
 
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
