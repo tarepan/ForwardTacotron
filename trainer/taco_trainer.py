@@ -132,7 +132,6 @@ class TacoTrainer:
         cos_mat_fig = plot_cos_matrix(cos_mat, labels=speaker_ids)
         self.writer.add_figure('Embedding_Metrics/speaker_cosine_dist', cos_mat_fig, model.step)
 
-
         m1_hat, m2_hat, att = model(x, m, s_id)
         att = np_now(att)[0]
         m1_hat = np_now(m1_hat)[0, :600, :]
@@ -159,22 +158,26 @@ class TacoTrainer:
             tag='Ground_Truth_Aligned/postnet_wav', snd_tensor=m2_hat_wav,
             global_step=model.step, sample_rate=hp.sample_rate)
 
-        m1_hat, m2_hat, att = model.generate(x[0].tolist(), s_id[0], steps=lens[0] + 20)
-        att_fig = plot_attention(att)
-        m1_hat_fig = plot_mel(m1_hat)
-        m2_hat_fig = plot_mel(m2_hat)
+        gen_speaker_tokens = [speaker_token_dict[s_id] for s_id in hp.tts_gen_speaker_ids]
 
-        self.writer.add_figure('Generated/attention', att_fig, model.step)
-        self.writer.add_figure('Generated/target', m_fig, model.step)
-        self.writer.add_figure('Generated/linear', m1_hat_fig, model.step)
-        self.writer.add_figure('Generated/postnet', m2_hat_fig, model.step)
+        for s_id in gen_speaker_tokens:
+            print(f'sid {s_id}')
+            m1_hat, m2_hat, att = model.generate(x[0].tolist(), s_id, steps=lens[0] + 20)
+            att_fig = plot_attention(att)
+            m1_hat_fig = plot_mel(m1_hat)
+            m2_hat_fig = plot_mel(m2_hat)
 
-        m2_hat_wav = reconstruct_waveform(m2_hat)
+            self.writer.add_figure(f'Generated_SID_{s_id}/attention', att_fig, model.step)
+            self.writer.add_figure(f'Generated_SID_{s_id}/target', m_fig, model.step)
+            self.writer.add_figure(f'Generated_SID_{s_id}/linear', m1_hat_fig, model.step)
+            self.writer.add_figure(f'Generated_SID_{s_id}/postnet', m2_hat_fig, model.step)
 
-        self.writer.add_audio(
-            tag='Generated/target_wav', snd_tensor=target_wav,
-            global_step=model.step, sample_rate=hp.sample_rate)
-        self.writer.add_audio(
-            tag='Generated/postnet_wav', snd_tensor=m2_hat_wav,
-            global_step=model.step, sample_rate=hp.sample_rate)
+            m2_hat_wav = reconstruct_waveform(m2_hat)
+
+            self.writer.add_audio(
+                tag='Generated/target_wav', snd_tensor=target_wav,
+                global_step=model.step, sample_rate=hp.sample_rate)
+            self.writer.add_audio(
+                tag='Generated/postnet_wav', snd_tensor=m2_hat_wav,
+                global_step=model.step, sample_rate=hp.sample_rate)
 
