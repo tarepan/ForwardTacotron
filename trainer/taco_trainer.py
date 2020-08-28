@@ -161,7 +161,6 @@ class TacoTrainer:
         gen_speaker_tokens = [speaker_token_dict[s_id] for s_id in hp.tts_gen_speaker_ids]
 
         for s_id in gen_speaker_tokens:
-            print(f'sid {s_id}')
             m1_hat, m2_hat, att = model.generate(x[0].tolist(), s_id, steps=lens[0] + 20)
             att_fig = plot_attention(att)
             m1_hat_fig = plot_mel(m1_hat)
