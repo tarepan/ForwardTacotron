@@ -371,12 +371,13 @@ class Tacotron(nn.Module):
 
         return mel_outputs, linear, attn_scores
 
-    def generate(self, x, steps=2000):
+    def generate(self, x, s_id, steps=2000):
         self.eval()
         device = next(self.parameters()).device  # use same device as parameters
 
         batch_size = 1
         x = torch.as_tensor(x, dtype=torch.long, device=device).unsqueeze(0)
+        s_id = torch.as_tensor(s_id, dtype=torch.long, device=device).unsqueeze(0)
 
         # Need to initialise all hidden states and pack into tuple for tidyness
         attn_hidden = torch.zeros(batch_size, self.decoder_dims, device=device)
@@ -398,6 +399,9 @@ class Tacotron(nn.Module):
         # Project the encoder outputs to avoid
         # unnecessary matmuls in the decoder loop
         encoder_seq = self.encoder(x)
+        speaker_emb = self.speaker_embedding(s_id)[:, None, :]
+        speaker_emb = speaker_emb.repeat(1, encoder_seq.shape[1], 1)
+        encoder_seq = torch.cat([encoder_seq, speaker_emb], dim=2)
         encoder_seq_proj = self.encoder_proj(encoder_seq)
 
         # Need a couple of lists for outputs

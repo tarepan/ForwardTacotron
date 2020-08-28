@@ -116,10 +116,10 @@ class TacoTrainer:
     def generate_plots(self, model: Tacotron, session: TTSSession) -> None:
         model.eval()
         device = next(model.parameters()).device
-        x, m, ids, lens = session.val_sample
-        x, m = x.to(device), m.to(device)
+        s_id, x, m, ids, lens = session.val_sample
+        x, m, s_id = x.to(device), m.to(device), s_id.to(device)
 
-        m1_hat, m2_hat, att = model(x, m)
+        m1_hat, m2_hat, att = model(x, m, s_id)
         att = np_now(att)[0]
         m1_hat = np_now(m1_hat)[0, :600, :]
         m2_hat = np_now(m2_hat)[0, :600, :]
@@ -145,7 +145,7 @@ class TacoTrainer:
             tag='Ground_Truth_Aligned/postnet_wav', snd_tensor=m2_hat_wav,
             global_step=model.step, sample_rate=hp.sample_rate)
 
-        m1_hat, m2_hat, att = model.generate(x[0].tolist(), steps=lens[0] + 20)
+        m1_hat, m2_hat, att = model.generate(x[0].tolist(), s_id[0], steps=lens[0] + 20)
         att_fig = plot_attention(att)
         m1_hat_fig = plot_mel(m1_hat)
         m2_hat_fig = plot_mel(m2_hat)
