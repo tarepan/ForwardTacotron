@@ -71,7 +71,7 @@ voc_overlap = 550                   # number of samples for crossfading between 
 
 # Model Hparams
 
-max_num_speakers = 100
+max_num_speakers = 500
 speaker_emb_dim = 128
 
 tts_embed_dims = 256                # embedding dimension for the graphemes/phoneme inputs
@@ -100,7 +100,7 @@ tts_schedule = [(10,  1e-3,  10_000,  32),   # progressive training schedule
 tts_max_mel_len = 1250              # if you have a couple of extremely long spectrograms you might want to use this
 tts_clip_grad_norm = 1.0            # clips the gradient norm to prevent explosion - set to None if not needed
 tts_checkpoint_every = 10_000        # checkpoints the model every X steps
-tts_plot_every = 1
+tts_plot_every = 1000
 
 # ------------------------------------------------------------------------------------------------------------------#
 
