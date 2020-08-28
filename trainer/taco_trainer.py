@@ -159,7 +159,8 @@ class TacoTrainer:
             tag='Ground_Truth_Aligned/postnet_wav', snd_tensor=m2_hat_wav,
             global_step=model.step, sample_rate=hp.sample_rate)
 
-        gen_speaker_ids = [token_speaker_dict[s_id[0]]] + hp.tts_gen_speaker_ids
+        target_sid = int(s_id[0].cpu())
+        gen_speaker_ids = [token_speaker_dict[target_sid]] + hp.tts_gen_speaker_ids
 
         for gen_speaker_id in gen_speaker_ids:
             s_id = speaker_token_dict[gen_speaker_id]
