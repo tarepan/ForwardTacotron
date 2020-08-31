@@ -134,51 +134,55 @@ class TacoTrainer:
         self.writer.add_figure('Embedding_Metrics/speaker_cosine_dist', cos_mat_fig, model.step)
 
         m1_hat, m2_hat, att = model(x, m, s_id)
-        att = np_now(att)[0]
-        m1_hat = np_now(m1_hat)[0, :600, :]
-        m2_hat = np_now(m2_hat)[0, :600, :]
-        m = np_now(m)[0, :600, :]
+        att = np_now(att)
+        m1_hat = np_now(m1_hat)
+        m2_hat = np_now(m2_hat)
+        m_target = np_now(m)
 
-        att_fig = plot_attention(att)
-        m1_hat_fig = plot_mel(m1_hat)
-        m2_hat_fig = plot_mel(m2_hat)
-        m_fig = plot_mel(m)
+        for idx in range(len(hp.val_speaker_ids)):
+            gen_sid = int(s_id[idx].cpu())
+            target_sid = token_speaker_dict[gen_sid]
+            att = att[idx]
+            m1_hat = m1_hat[idx, :600, :]
+            m2_hat = m2_hat[idx, :600, :]
+            m_target = m_target[idx, :600, :]
 
-        self.writer.add_figure('Ground_Truth_Aligned/attention', att_fig, model.step)
-        self.writer.add_figure('Ground_Truth_Aligned/target', m_fig, model.step)
-        self.writer.add_figure('Ground_Truth_Aligned/linear', m1_hat_fig, model.step)
-        self.writer.add_figure('Ground_Truth_Aligned/postnet', m2_hat_fig, model.step)
-
-        m2_hat_wav = reconstruct_waveform(m2_hat)
-        target_wav = reconstruct_waveform(m)
-
-        self.writer.add_audio(
-            tag='Ground_Truth_Aligned/target_wav', snd_tensor=target_wav,
-            global_step=model.step, sample_rate=hp.sample_rate)
-        self.writer.add_audio(
-            tag='Ground_Truth_Aligned/postnet_wav', snd_tensor=m2_hat_wav,
-            global_step=model.step, sample_rate=hp.sample_rate)
-
-        target_sid = int(s_id[0].cpu())
-        gen_speaker_ids = [token_speaker_dict[target_sid]] + hp.tts_gen_speaker_ids
-
-        for idx, gen_speaker_id in enumerate(gen_speaker_ids):
-            s_id = speaker_token_dict[gen_speaker_id]
-            m1_hat, m2_hat, att = model.generate(x[0].tolist(), s_id, steps=lens[0] + 20)
             att_fig = plot_attention(att)
             m1_hat_fig = plot_mel(m1_hat)
             m2_hat_fig = plot_mel(m2_hat)
-            self.writer.add_figure(f'Generated_{idx}_SID_{gen_speaker_id}/attention', att_fig, model.step)
-            self.writer.add_figure(f'Generated_{idx}_SID_{gen_speaker_id}/target', m_fig, model.step)
-            self.writer.add_figure(f'Generated_{idx}_SID_{gen_speaker_id}/linear', m1_hat_fig, model.step)
-            self.writer.add_figure(f'Generated_{idx}_SID_{gen_speaker_id}/postnet', m2_hat_fig, model.step)
+            m_target_fig = plot_mel(m_target)
+
+            self.writer.add_figure(f'Ground_Truth_Aligned_{idx}_SID_{target_sid}/attention', att_fig, model.step)
+            self.writer.add_figure(f'Ground_Truth_Aligned_{idx}_SID_{target_sid}/target', m_target_fig, model.step)
+            self.writer.add_figure(f'Ground_Truth_Aligned_{idx}_SID_{target_sid}/linear', m1_hat_fig, model.step)
+            self.writer.add_figure(f'Ground_Truth_Aligned_{idx}_SID_{target_sid}/postnet', m2_hat_fig, model.step)
+
+            m2_hat_wav = reconstruct_waveform(m2_hat)
+            target_wav = reconstruct_waveform(m_target)
+
+            self.writer.add_audio(
+                tag='Ground_Truth_Aligned/target_wav', snd_tensor=target_wav,
+                global_step=model.step, sample_rate=hp.sample_rate)
+            self.writer.add_audio(
+                tag='Ground_Truth_Aligned/postnet_wav', snd_tensor=m2_hat_wav,
+                global_step=model.step, sample_rate=hp.sample_rate)
+
+            m1_hat, m2_hat, att = model.generate(x[0].tolist(), gen_sid, steps=lens[0] + 20)
+            att_fig = plot_attention(att)
+            m1_hat_fig = plot_mel(m1_hat)
+            m2_hat_fig = plot_mel(m2_hat)
+
+            self.writer.add_figure(f'Generated_{idx}_SID_{target_sid}/attention', att_fig, model.step)
+            self.writer.add_figure(f'Generated_{idx}_SID_{target_sid}/target', m_target_fig, model.step)
+            self.writer.add_figure(f'Generated_{idx}_SID_{target_sid}/linear', m1_hat_fig, model.step)
+            self.writer.add_figure(f'Generated_{idx}_SID_{target_sid}/postnet', m2_hat_fig, model.step)
 
             m2_hat_wav = reconstruct_waveform(m2_hat)
 
             self.writer.add_audio(
-                tag=f'Generated_{idx}_SID_{gen_speaker_id}/target_wav', snd_tensor=target_wav,
+                tag=f'Generated_{idx}_SID_{target_sid}/target_wav', snd_tensor=target_wav,
                 global_step=model.step, sample_rate=hp.sample_rate)
             self.writer.add_audio(
-                tag=f'Generated_{idx}_SID_{gen_speaker_id}/postnet_wav', snd_tensor=m2_hat_wav,
+                tag=f'Generated_{idx}_SID_{target_sid}/postnet_wav', snd_tensor=m2_hat_wav,
                 global_step=model.step, sample_rate=hp.sample_rate)
 

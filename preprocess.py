@@ -1,5 +1,7 @@
 import glob
 from random import Random
+import pandas as pd
+from sklearn.model_selection import train_test_split
 
 from utils.display import *
 from utils.dsp import *
@@ -93,7 +95,8 @@ else:
     print('\nCreating mels...')
     for i, (item_id, length, cleaned_text) in enumerate(pool.imap_unordered(process_wav, wav_files), 1):
         if item_id in text_dict:
-            dataset += [(item_id, length)]
+            speaker_id = speaker_dict[item_id]
+            dataset += [(item_id, int(speaker_id), int(length))]
             cleaned_texts += [(item_id, cleaned_text)]
         else:
             print(f'Entry not found for id: {item_id}')
@@ -101,12 +104,27 @@ else:
         message = f'{bar} {i}/{len(wav_files)} '
         stream(message)
 
-    random = Random(hp.seed)
-    random.shuffle(dataset)
-    train_dataset = dataset[hp.n_val:]
-    val_dataset = dataset[:hp.n_val]
-    # sort val dataset longest to shortest
-    val_dataset.sort(key=lambda d: -d[1])
+    df = pd.DataFrame(data=dataset, columns=['item_id', 'speaker_id', 'length'])
+    value_counts = df['speaker_id'].value_counts()
+    to_remove = value_counts[value_counts < hp.min_speaker_count].index
+    df = df[~df.speaker_id.isin(to_remove)]
+    train_df, val_df = train_test_split(df, test_size=hp.n_val, random_state=42, stratify=df[['speaker_id']])
+
+    train_dataset = list(train_df[['item_id', 'length']].itertuples(index=False, name=None))
+    val_dataset = list(val_df[['item_id', 'length']].itertuples(index=False, name=None))
+    val_dataset.sort(key=lambda d: -int(d[1]))
+
+    # make sure certain speaker ids in hparams are first in the val dataset
+    val_first, val_second = [], []
+    first_val_speaker_ids = set(hp.val_speaker_ids)
+    for v_id, v_len in val_dataset:
+        val_speaker_id = int(speaker_dict[v_id])
+        if val_speaker_id in first_val_speaker_ids:
+            val_first.append((v_id, v_len))
+            first_val_speaker_ids.remove(val_speaker_id)
+        else:
+            val_second.append((v_id, v_len))
+    val_dataset = val_first + val_second
 
     for id, text in cleaned_texts:
         text_dict[id] = text

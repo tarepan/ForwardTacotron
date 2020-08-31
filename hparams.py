@@ -7,8 +7,8 @@ data_path = 'data/'
 
 # model ids are separate - that way you can use a new tts with an old wavernn and vice versa
 # NB: expect undefined behaviour if models were trained on different DSP settings
-voc_model_id = 'speaker_emb_raw'
-tts_model_id = 'speaker_emb_tts'
+voc_model_id = 'speaker_emb_new_raw'
+tts_model_id = 'speaker_emb_new_tts'
 
 # set this to True if you are only interested in WaveRNN
 ignore_tts = False
@@ -34,6 +34,8 @@ peak_norm = False                   # Normalise to the peak of each wav file
 
 seed = 42
 n_val = 200                         # num validatino samples
+min_speaker_count = 10
+val_speaker_ids = [1089, 4507, 7729] # use these speakers for generating plots
 
 # WAVERNN / VOCODER ------------------------------------------------------------------------------------------------#
 
@@ -100,8 +102,7 @@ tts_schedule = [(10,  1e-3,  10_000,  32),   # progressive training schedule
 tts_max_mel_len = 1250              # if you have a couple of extremely long spectrograms you might want to use this
 tts_clip_grad_norm = 1.0            # clips the gradient norm to prevent explosion - set to None if not needed
 tts_checkpoint_every = 10_000        # checkpoints the model every X steps
-tts_plot_every = 1000
-tts_gen_speaker_ids = [19, 26]
+tts_plot_every = 1
 
 # ------------------------------------------------------------------------------------------------------------------#
 

@@ -39,11 +39,11 @@ def load_file(wav_path):
     return speaker_id, wav_path, w_max, w_avg, w_len, line_len
 
 
-data_path = '/Users/cschaefe/datasets/LibriTTS/train-clean-100'
-wav_paths = list(Path(data_path).glob("**/*.wav"))
-df = gen_dataset(wav_paths)
-df.to_csv('/tmp/train-clean-100.csv')
-#df = pd.read_csv('/tmp/train-clean-100.csv')
+#data_path = '/Users/cschaefe/datasets/LibriTTS/train-clean-100'
+#wav_paths = list(Path(data_path).glob("**/*.wav"))
+#df = gen_dataset(wav_paths)
+#df.to_csv('/tmp/train-clean-100.csv')
+df = pd.read_csv('/tmp/train-clean-100.csv')
 df['w_len_t_len'] = df['w_len'] / df['line_len']
 df.to_csv('/tmp/train-clean-100-proc.csv')
 
