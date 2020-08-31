@@ -6,11 +6,21 @@ from multiprocessing import Pool, cpu_count
 
 
 def plot_by_speaker_id(df, col_name, save_path=None):
-    df = df[:]
     df_mean = df.groupby('speaker_id')[col_name].mean().sort_values()
     df_std = df.groupby('speaker_id')[col_name].std().sort_values()
     ax = df_mean.plot(figsize=(50, 8), legend=False, kind="bar", rot=45, color="lightblue", yerr=df_std)
     ax.set(ylabel=col_name, xlabel='speaker_id')
+    if save_path is None:
+        plt.show()
+    else:
+        plt.savefig(save_path, format='pdf')
+    plt.close()
+
+
+def plot_speaker_count(df, save_path=None):
+    df_mean = df.groupby('speaker_id')['w_len'].count().sort_values()
+    ax = df_mean.plot(figsize=(50, 8), legend=False, kind="bar", rot=45, color="lightblue")
+    ax.set(ylabel='count', xlabel='speaker_id')
     if save_path is None:
         plt.show()
     else:
@@ -48,10 +58,10 @@ df['w_len_t_len'] = df['w_len'] / df['line_len']
 df.to_csv('/tmp/train-clean-100-proc.csv')
 
 print(df.head())
+plot_speaker_count(df, '/tmp/speaker_count.pdf')
 plot_by_speaker_id(df, 'w_max', '/tmp/w_max.pdf')
 plot_by_speaker_id(df, 'w_len', '/tmp/w_len.pdf')
 plot_by_speaker_id(df, 'w_len_t_len', '/tmp/w_len_t_len.pdf')
-
 
 #plot_histo(df, 'speaker_id')
 #plot_histo(df, 'line_len')

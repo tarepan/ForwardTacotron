@@ -34,8 +34,8 @@ peak_norm = False                   # Normalise to the peak of each wav file
 
 seed = 42
 n_val = 500                         # num validatino samples
-min_speaker_count = 100 # min count of samples per speaker
-val_speaker_ids = [19, 26, 209] # use these speakers for generating plots
+min_speaker_count = 20 # min count of samples per speaker
+val_speaker_ids = [6209, 1088, 87, 27] # use these speakers for generating plots
 
 # WAVERNN / VOCODER ------------------------------------------------------------------------------------------------#
 
