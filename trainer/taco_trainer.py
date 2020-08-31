@@ -134,18 +134,18 @@ class TacoTrainer:
         self.writer.add_figure('Embedding_Metrics/speaker_cosine_dist', cos_mat_fig, model.step)
 
         m1_hat, m2_hat, att = model(x, m, s_id)
-        att = np_now(att)
-        m1_hat = np_now(m1_hat)
-        m2_hat = np_now(m2_hat)
-        m_target = np_now(m)
+        att_np = np_now(att)
+        m1_hat_np = np_now(m1_hat)
+        m2_hat_np = np_now(m2_hat)
+        m_target_np = np_now(m)
 
         for idx in range(len(hp.val_speaker_ids)):
             gen_sid = int(s_id[idx].cpu())
             target_sid = token_speaker_dict[gen_sid]
-            att = att[idx]
-            m1_hat = m1_hat[idx, :600, :]
-            m2_hat = m2_hat[idx, :600, :]
-            m_target = m_target[idx, :600, :]
+            att = att_np[idx]
+            m1_hat = m1_hat_np[idx, :600, :]
+            m2_hat = m2_hat_np[idx, :600, :]
+            m_target = m_target_np[idx, :600, :]
 
             att_fig = plot_attention(att)
             m1_hat_fig = plot_mel(m1_hat)
@@ -161,10 +161,10 @@ class TacoTrainer:
             target_wav = reconstruct_waveform(m_target)
 
             self.writer.add_audio(
-                tag='Ground_Truth_Aligned/target_wav', snd_tensor=target_wav,
+                tag=f'Ground_Truth_Aligned_{idx}_SID_{target_sid}/target_wav', snd_tensor=target_wav,
                 global_step=model.step, sample_rate=hp.sample_rate)
             self.writer.add_audio(
-                tag='Ground_Truth_Aligned/postnet_wav', snd_tensor=m2_hat_wav,
+                tag=f'Ground_Truth_Aligned_{idx}_SID_{target_sid}/postnet_wav', snd_tensor=m2_hat_wav,
                 global_step=model.step, sample_rate=hp.sample_rate)
 
             m1_hat, m2_hat, att = model.generate(x[0].tolist(), gen_sid, steps=lens[0] + 20)
