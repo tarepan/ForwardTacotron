@@ -27,7 +27,7 @@ fmin = 0
 fmax = 8000
 bits = 9                            # bit depth of signal
 mu_law = True                       # Recommended to suppress noise if using raw bits in hp.voc_mode below
-peak_norm = False                   # Normalise to the peak of each wav file
+peak_norm = True                   # Normalise to the peak of each wav file
 
 
 # GENERAL TRAINING ----------------------------------------------------------------------------------------------------------#

@@ -103,7 +103,7 @@ else:
         bar = progbar(i, len(wav_files))
         message = f'{bar} {i}/{len(wav_files)} '
         stream(message)
-
+    dataset.sort()
     df = pd.DataFrame(data=dataset, columns=['item_id', 'speaker_id', 'length'])
     value_counts = df['speaker_id'].value_counts()
     to_remove = value_counts[value_counts < hp.min_speaker_count].index
