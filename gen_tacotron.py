@@ -15,6 +15,7 @@ if __name__ == '__main__':
     # Parse Arguments
     parser = argparse.ArgumentParser(description='TTS Generator')
     parser.add_argument('--input_text', '-i', type=str, help='[string] Type in something here and TTS will generate it!')
+    parser.add_argument('--speaker_id', type=int)
     parser.add_argument('--tts_weights', type=str, help='[string/path] Load in different Tacotron weights')
     parser.add_argument('--save_attention', '-a', dest='save_attn', action='store_true', help='Save Attention Plots')
     parser.add_argument('--force_cpu', '-c', action='store_true', help='Forces CPU-only training, even when in CUDA capable environment')
@@ -106,7 +107,10 @@ if __name__ == '__main__':
                          postnet_K=hp.tts_postnet_K,
                          num_highways=hp.tts_num_highways,
                          dropout=hp.tts_dropout,
-                         stop_threshold=hp.tts_stop_threshold).to(device)
+                         stop_threshold=hp.tts_stop_threshold,
+                         num_speakers=hp.max_num_speakers,
+                         speaker_emb_dim=hp.speaker_emb_dim,
+                         ).to(device)
 
     tts_load_path = tts_weights if tts_weights else paths.tts_latest_weights
     tts_model.load(tts_load_path)
@@ -141,7 +145,7 @@ if __name__ == '__main__':
     for i, x in enumerate(inputs, 1):
 
         print(f'\n| Generating {i}/{len(inputs)}')
-        _, m, attention = tts_model.generate(x)
+        _, m, attention = tts_model.generate(x, args.speaker_id)
 
         if args.vocoder == 'griffinlim':
             v_type = args.vocoder
@@ -151,9 +155,9 @@ if __name__ == '__main__':
             v_type = 'wavernn_unbatched'
 
         if input_text:
-            save_path = paths.tts_output/f'__input_{input_text[:10]}_{v_type}_{tts_k}k.wav'
+            save_path = paths.tts_output/f'__input_{input_text[:10]}_{v_type}_{tts_k}k_sid{args.speaker_id}.wav'
         else:
-            save_path = paths.tts_output/f'{i}_{v_type}_{tts_k}k.wav'
+            save_path = paths.tts_output/f'{i}_{v_type}_{tts_k}k_sid{args.speaker_id}.wav'
 
         if save_attn: save_attention(attention, save_path)
 
