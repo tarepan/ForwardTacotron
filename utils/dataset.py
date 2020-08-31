@@ -109,7 +109,7 @@ def get_tts_datasets(path: Path, batch_size, r, model_type='tacotron'):
     train_ids, train_lens = filter_max_len(train_data)
     val_ids, val_lens = filter_max_len(val_data)
     text_dict = unpickle_binary(path/'text_dict.pkl')
-    speaker_id_dict = unpickle_binary(path/'speaker_id_dict.pkl')
+    speaker_id_dict = unpickle_binary(path/'speaker_dict.pkl')
     speaker_token_dict = unpickle_binary(path/'speaker_token_dict.pkl')
     if model_type == 'tacotron':
         train_dataset = TacoDataset(path, train_ids, text_dict, speaker_id_dict, speaker_token_dict)
