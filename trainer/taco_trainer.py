@@ -167,7 +167,7 @@ class TacoTrainer:
                 tag=f'Ground_Truth_Aligned_{idx}_SID_{target_sid}/postnet_wav', snd_tensor=m2_hat_wav,
                 global_step=model.step, sample_rate=hp.sample_rate)
 
-            m1_hat, m2_hat, att = model.generate(x[0].tolist(), gen_sid, steps=lens[0] + 20)
+            m1_hat, m2_hat, att = model.generate(x[idx].tolist(), gen_sid, steps=lens[idx] + 20)
             att_fig = plot_attention(att)
             m1_hat_fig = plot_mel(m1_hat)
             m2_hat_fig = plot_mel(m2_hat)
