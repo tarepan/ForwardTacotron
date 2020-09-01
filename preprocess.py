@@ -102,7 +102,10 @@ else:
     dataset = []
     cleaned_texts = []
     print('\nCreating mels...')
-    for i, (item_id, length, cleaned_text) in enumerate(pool.imap_unordered(process_wav, wav_files), 1):
+
+    #for i, (item_id, length, cleaned_text) in enumerate(pool.imap_unordered(process_wav, wav_files), 1):
+    for i, wav_file in enumerate(wav_files, 1):
+        item_id, length, cleaned_text = process_wav(wav_file)
         if item_id in text_dict:
             speaker_id = speaker_dict[item_id]
             dataset += [(item_id, int(speaker_id), int(length))]
