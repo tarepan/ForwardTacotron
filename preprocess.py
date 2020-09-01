@@ -1,5 +1,7 @@
 import glob
+from collections import Counter
 from random import Random
+from resemblyzer import VoiceEncoder, preprocess_wav
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
@@ -39,26 +41,33 @@ if args.path is None:
 extension = args.extension
 path = args.path
 
+voice_encoder = VoiceEncoder()
+
 
 def convert_file(path: Path):
     y = load_wav(path)
     peak = np.abs(y).max()
     if hp.peak_norm or peak > 1.0:
         y /= peak
+
+    y_p = preprocess_wav(y, source_sr=hp.sample_rate)
+    speaker_emb = voice_encoder.embed_utterance(y_p)
+
     mel = melspectrogram(y)
     if hp.voc_mode == 'RAW':
         quant = encode_mu_law(y, mu=2**hp.bits) if hp.mu_law else float_2_label(y, bits=hp.bits)
     elif hp.voc_mode == 'MOL':
         quant = float_2_label(y, bits=16)
 
-    return mel.astype(np.float32), quant.astype(np.int64)
+    return mel.astype(np.float32), quant.astype(np.int64), speaker_emb.astype(np.float32)
 
 
 def process_wav(path: Path):
     wav_id = path.stem
-    m, x = convert_file(path)
+    m, x, s_emb = convert_file(path)
     np.save(paths.mel/f'{wav_id}.npy', m, allow_pickle=False)
     np.save(paths.quant/f'{wav_id}.npy', x, allow_pickle=False)
+    np.save(paths.semb/f'{wav_id}.npy', s_emb, allow_pickle=False)
     text = text_dict[wav_id]
     text = clean_text(text)
     return wav_id, m.shape[-1], text
@@ -129,6 +138,21 @@ else:
     for id, text in cleaned_texts:
         text_dict[id] = text
 
+    print('\naveraging speaker embeddings...')
+    avg_sembs = {}
+    for item_id, _ in train_dataset + val_dataset:
+        semb = np.load(str(paths.data/'semb'/f'{item_id}.npy'))
+        s_id = speaker_dict[item_id]
+        avg_semb = avg_sembs.get(s_id, np.zeros(semb.shape))
+        avg_semb += semb
+        avg_sembs[s_id] = avg_semb
+    s_id_counter = Counter([speaker_dict[s_id] for s_id, _ in train_dataset + val_dataset])
+    print(s_id_counter)
+    for s_id, avg_semb in avg_sembs.items():
+        avg_semb = avg_semb / s_id_counter[s_id]
+        avg_semb = avg_semb / np.linalg.norm(avg_semb, 2)
+
+    pickle_binary(avg_sembs, paths.data/'speaker_emb_dict.pkl')
     pickle_binary(text_dict, paths.data/'text_dict.pkl')
     pickle_binary(speaker_dict, paths.data/'speaker_dict.pkl')
     pickle_binary(speaker_token_dict, paths.data/'speaker_token_dict.pkl')

@@ -167,7 +167,8 @@ class TacoDataset(Dataset):
         x = text_to_sequence(text)
         mel = np.load(str(self.path/'mel'/f'{item_id}.npy'))
         mel_len = mel.shape[-1]
-        return speaker_token, x, mel, item_id, mel_len
+        semb = np.load(str(self.path/'semb'/f'{item_id}.npy'))
+        return speaker_token, semb, x, mel, item_id, mel_len
 
     def __len__(self):
         return len(self.metadata)
@@ -203,31 +204,33 @@ def pad2d(x, max_len):
 
 def collate_tts(batch, r):
     speaker_token = [x[0] for x in batch]
-    x_lens = [len(x[1]) for x in batch]
+    semb = [x[1] for x in batch]
+    x_lens = [len(x[2]) for x in batch]
     max_x_len = max(x_lens)
-    chars = [pad1d(x[1], max_x_len) for x in batch]
+    chars = [pad1d(x[2], max_x_len) for x in batch]
     chars = np.stack(chars)
-    spec_lens = [x[2].shape[-1] for x in batch]
+    spec_lens = [x[3].shape[-1] for x in batch]
     max_spec_len = max(spec_lens) + 1
     if max_spec_len % r != 0:
         max_spec_len += r - max_spec_len % r
-    mel = [pad2d(x[2], max_spec_len) for x in batch]
+    mel = [pad2d(x[3], max_spec_len) for x in batch]
     mel = np.stack(mel)
-    ids = [x[3] for x in batch]
-    mel_lens = [x[4] for x in batch]
+    ids = [x[4] for x in batch]
+    mel_lens = [x[5] for x in batch]
     mel_lens = torch.tensor(mel_lens)
     x_lens = torch.tensor(x_lens)
     speaker_token = torch.tensor(speaker_token)
+    semb = torch.tensor(semb)
     chars = torch.tensor(chars).long()
     mel = torch.tensor(mel)
     # additional durations for forward
-    if len(batch[0]) > 5:
-        dur = [pad1d(x[5][:max_x_len], max_x_len) for x in batch]
+    if len(batch[0]) > 6:
+        dur = [pad1d(x[6][:max_x_len], max_x_len) for x in batch]
         dur = np.stack(dur)
         dur = torch.tensor(dur).float()
-        return speaker_token, chars, mel, ids, x_lens, mel_lens, dur
+        return speaker_token, semb, chars, mel, ids, x_lens, mel_lens, dur
     else:
-        return speaker_token, chars, mel, ids, x_lens, mel_lens
+        return speaker_token, semb, chars, mel, ids, x_lens, mel_lens
 
 
 class BinnedLengthSampler(Sampler):

@@ -288,7 +288,6 @@ class Tacotron(nn.Module):
         super().__init__()
         self.n_mels = n_mels
 
-        self.speaker_embedding = Embedding(num_speakers, speaker_emb_dim)
         self.lstm_dims = lstm_dims
         self.decoder_dims = decoder_dims + speaker_emb_dim
         self.encoder = Encoder(embed_dims, num_chars, encoder_dims,
@@ -312,7 +311,7 @@ class Tacotron(nn.Module):
     def r(self, value):
         self.decoder.r = self.decoder.r.new_tensor(value, requires_grad=False)
 
-    def forward(self, x, m, s_id, generate_gta=False):
+    def forward(self, x, m, s_emb, generate_gta=False):
         device = next(self.parameters()).device  # use same device as parameters
 
         if self.training:
@@ -340,7 +339,7 @@ class Tacotron(nn.Module):
         # Project the encoder outputs to avoid
         # unnecessary matmuls in the decoder loop
         encoder_seq = self.encoder(x)
-        speaker_emb = self.speaker_embedding(s_id)[:, None, :]
+        speaker_emb = s_emb[:, None, :]
         speaker_emb = speaker_emb.repeat(1, encoder_seq.shape[1], 1)
         encoder_seq = torch.cat([encoder_seq, speaker_emb], dim=2)
         encoder_seq_proj = self.encoder_proj(encoder_seq)
@@ -371,13 +370,13 @@ class Tacotron(nn.Module):
 
         return mel_outputs, linear, attn_scores
 
-    def generate(self, x, s_id, steps=2000):
+    def generate(self, x, s_emb, steps=2000):
         self.eval()
         device = next(self.parameters()).device  # use same device as parameters
 
         batch_size = 1
         x = torch.as_tensor(x, dtype=torch.long, device=device).unsqueeze(0)
-        s_id = torch.as_tensor(s_id, dtype=torch.long, device=device).unsqueeze(0)
+        s_emb = torch.as_tensor(s_emb, dtype=torch.long, device=device).unsqueeze(0)
 
         # Need to initialise all hidden states and pack into tuple for tidyness
         attn_hidden = torch.zeros(batch_size, self.decoder_dims, device=device)
@@ -399,7 +398,7 @@ class Tacotron(nn.Module):
         # Project the encoder outputs to avoid
         # unnecessary matmuls in the decoder loop
         encoder_seq = self.encoder(x)
-        speaker_emb = self.speaker_embedding(s_id)[:, None, :]
+        speaker_emb = s_emb[:, None, :]
         speaker_emb = speaker_emb.repeat(1, encoder_seq.shape[1], 1)
         encoder_seq = torch.cat([encoder_seq, speaker_emb], dim=2)
         encoder_seq_proj = self.encoder_proj(encoder_seq)
