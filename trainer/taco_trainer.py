@@ -54,7 +54,7 @@ class TacoTrainer:
         duration_avg = Averager()
         device = next(model.parameters()).device  # use same device as model parameters
         for e in range(1, epochs + 1):
-            for i, (s_id, x, m, ids, _) in enumerate(session.train_set, 1):
+            for i, (s_id, x, m, ids, x_lens, m_lens) in enumerate(session.train_set, 1):
                 start = time.time()
                 model.train()
                 x, m, s_id = x.to(device), m.to(device), s_id.to(device)
@@ -104,7 +104,7 @@ class TacoTrainer:
         model.eval()
         val_loss = 0
         device = next(model.parameters()).device
-        for i, (s_id, x, m, ids, _) in enumerate(val_set, 1):
+        for i, (s_id, x, m, ids, x_lens, m_lens) in enumerate(val_set, 1):
             x, m, s_id = x.to(device), m.to(device), s_id.to(device)
 
             with torch.no_grad():
@@ -118,7 +118,7 @@ class TacoTrainer:
     def generate_plots(self, model: Tacotron, session: TTSSession) -> None:
         model.eval()
         device = next(model.parameters()).device
-        s_id, x, m, ids, lens = session.val_sample
+        s_id, x, m, ids, x_lens, m_lens = session.val_sample
         x, m, s_id = x.to(device), m.to(device), s_id.to(device)
 
         # plot speaker cosine similarity matrix
@@ -133,19 +133,19 @@ class TacoTrainer:
         cos_mat_fig = plot_cos_matrix(cos_mat, labels=speaker_ids)
         self.writer.add_figure('Embedding_Metrics/speaker_cosine_dist', cos_mat_fig, model.step)
 
-        m1_hat, m2_hat, att = model(x, m, s_id)
-        att_np = np_now(att)
-        m1_hat_np = np_now(m1_hat)
-        m2_hat_np = np_now(m2_hat)
-        m_target_np = np_now(m)
-
         for idx in range(len(hp.val_speaker_ids)):
+            x_len = x_lens[idx]
+            m1_hat, m2_hat, att = model(x[idx:idx+1, :x_len], m[idx:idx+1, :, :], s_id[idx:idx+1])
+            att_np = np_now(att)
+            m1_hat_np = np_now(m1_hat)
+            m2_hat_np = np_now(m2_hat)
+            m_target_np = np_now(m)
             gen_sid = int(s_id[idx].cpu())
             target_sid = token_speaker_dict[gen_sid]
-            att = att_np[idx]
-            m1_hat = m1_hat_np[idx, :600, :]
-            m2_hat = m2_hat_np[idx, :600, :]
-            m_target = m_target_np[idx, :600, :]
+            att = att_np[0]
+            m1_hat = m1_hat_np[0, :, :]
+            m2_hat = m2_hat_np[0, :, :]
+            m_target = m_target_np[0, :, :]
 
             att_fig = plot_attention(att)
             m1_hat_fig = plot_mel(m1_hat)
@@ -167,7 +167,7 @@ class TacoTrainer:
                 tag=f'Ground_Truth_Aligned_{idx}_SID_{target_sid}/postnet_wav', snd_tensor=m2_hat_wav,
                 global_step=model.step, sample_rate=hp.sample_rate)
 
-            m1_hat, m2_hat, att = model.generate(x[idx].tolist(), gen_sid, steps=lens[idx] + 20)
+            m1_hat, m2_hat, att = model.generate(x[idx].tolist(), gen_sid, steps=m_lens[idx] + 20)
             att_fig = plot_attention(att)
             m1_hat_fig = plot_mel(m1_hat)
             m2_hat_fig = plot_mel(m2_hat)
