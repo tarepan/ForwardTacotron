@@ -376,7 +376,7 @@ class Tacotron(nn.Module):
 
         batch_size = 1
         x = torch.as_tensor(x, dtype=torch.long, device=device).unsqueeze(0)
-        s_emb = torch.as_tensor(s_emb, dtype=torch.long, device=device).unsqueeze(0)
+        s_emb = torch.as_tensor(s_emb, dtype=torch.float, device=device).unsqueeze(0)
 
         # Need to initialise all hidden states and pack into tuple for tidyness
         attn_hidden = torch.zeros(batch_size, self.decoder_dims, device=device)

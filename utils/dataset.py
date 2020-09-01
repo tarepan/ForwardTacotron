@@ -220,7 +220,7 @@ def collate_tts(batch, r):
     mel_lens = torch.tensor(mel_lens)
     x_lens = torch.tensor(x_lens)
     speaker_token = torch.tensor(speaker_token)
-    semb = torch.tensor(semb)
+    semb = torch.tensor(semb).float()
     chars = torch.tensor(chars).long()
     mel = torch.tensor(mel)
     # additional durations for forward
