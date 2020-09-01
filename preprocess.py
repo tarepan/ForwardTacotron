@@ -154,6 +154,7 @@ else:
     for s_id, avg_semb in avg_sembs.items():
         avg_semb = avg_semb / s_id_counter[s_id]
         avg_semb = avg_semb / np.linalg.norm(avg_semb, 2)
+        avg_sembs[s_id] = avg_semb
 
     pickle_binary(avg_sembs, paths.data/'speaker_emb_dict.pkl')
     pickle_binary(text_dict, paths.data/'text_dict.pkl')
