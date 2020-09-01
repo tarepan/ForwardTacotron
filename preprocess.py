@@ -56,7 +56,8 @@ def convert_file(path: Path):
     elif hp.voc_mode == 'MOL':
         quant = float_2_label(y, bits=16)
 
-    return mel.astype(np.float32), quant.astype(np.int64), y
+    m_p = preprocess_wav(y, source_sr=hp.sample_rate)
+    return mel.astype(np.float32), quant.astype(np.int64), m_p
 
 
 def process_wav(path: Path):
@@ -99,9 +100,8 @@ else:
     cleaned_texts = []
     print('\nCreating mels...')
 
-    for i, (item_id, length, cleaned_text, y_p) in enumerate(pool.imap_unordered(process_wav, wav_files), 1):
-        y_p = preprocess_wav(y_p, source_sr=hp.sample_rate)
-        semb = voice_encoder.embed_utterance(y_p)
+    for i, (item_id, length, cleaned_text, m_p) in enumerate(pool.imap_unordered(process_wav, wav_files), 1):
+        semb = voice_encoder.embed_utterance(m_p)
         np.save(paths.semb/f'{item_id}.npy', semb, allow_pickle=False)
 
         if item_id in text_dict:

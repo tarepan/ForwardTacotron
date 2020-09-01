@@ -139,14 +139,14 @@ class TacoTrainer:
             att_np = np_now(att)
             m1_hat_np = np_now(m1_hat)
             m2_hat_np = np_now(m2_hat)
-            m_target_np = np_now(m)
             gen_sid = int(s_id[idx].cpu())
             gen_semb = semb[idx].cpu()
             target_sid = token_speaker_dict[gen_sid]
             att = att_np[0]
             m1_hat = m1_hat_np[0, :, :]
             m2_hat = m2_hat_np[0, :, :]
-            m_target = m_target_np[0, :, :]
+            m_target_np = np_now(m)
+            m_target = m_target_np[idx, :, :]
 
             att_fig = plot_attention(att)
             m1_hat_fig = plot_mel(m1_hat)
