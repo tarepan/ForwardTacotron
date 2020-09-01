@@ -50,27 +50,23 @@ def convert_file(path: Path):
     if hp.peak_norm or peak > 1.0:
         y /= peak
 
-    y_p = preprocess_wav(y, source_sr=hp.sample_rate)
-    speaker_emb = voice_encoder.embed_utterance(y_p)
-
     mel = melspectrogram(y)
     if hp.voc_mode == 'RAW':
         quant = encode_mu_law(y, mu=2**hp.bits) if hp.mu_law else float_2_label(y, bits=hp.bits)
     elif hp.voc_mode == 'MOL':
         quant = float_2_label(y, bits=16)
 
-    return mel.astype(np.float32), quant.astype(np.int64), speaker_emb.astype(np.float32)
+    return mel.astype(np.float32), quant.astype(np.int64), y
 
 
 def process_wav(path: Path):
     wav_id = path.stem
-    m, x, s_emb = convert_file(path)
+    m, x, y_p = convert_file(path)
     np.save(paths.mel/f'{wav_id}.npy', m, allow_pickle=False)
     np.save(paths.quant/f'{wav_id}.npy', x, allow_pickle=False)
-    np.save(paths.semb/f'{wav_id}.npy', s_emb, allow_pickle=False)
     text = text_dict[wav_id]
     text = clean_text(text)
-    return wav_id, m.shape[-1], text
+    return wav_id, m.shape[-1], text, y_p
 
 
 wav_files = get_files(path, extension)
@@ -103,9 +99,14 @@ else:
     cleaned_texts = []
     print('\nCreating mels...')
 
-    #for i, (item_id, length, cleaned_text) in enumerate(pool.imap_unordered(process_wav, wav_files), 1):
-    for i, wav_file in enumerate(wav_files, 1):
-        item_id, length, cleaned_text = process_wav(wav_file)
+    for i, (item_id, length, cleaned_text, y_p) in enumerate(pool.imap_unordered(process_wav, wav_files), 1):
+    #for i, wav_file in enumerate(wav_files, 1):
+    #    item_id, length, cleaned_text = process_wav(wav_file)
+
+        y_p = preprocess_wav(y_p, source_sr=hp.sample_rate)
+        semb = voice_encoder.embed_utterance(y_p)
+        np.save(paths.semb/f'{item_id}.npy', semb, allow_pickle=False)
+
         if item_id in text_dict:
             speaker_id = speaker_dict[item_id]
             dataset += [(item_id, int(speaker_id), int(length))]
