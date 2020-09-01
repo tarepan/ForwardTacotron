@@ -100,9 +100,6 @@ else:
     print('\nCreating mels...')
 
     for i, (item_id, length, cleaned_text, y_p) in enumerate(pool.imap_unordered(process_wav, wav_files), 1):
-    #for i, wav_file in enumerate(wav_files, 1):
-    #    item_id, length, cleaned_text = process_wav(wav_file)
-
         y_p = preprocess_wav(y_p, source_sr=hp.sample_rate)
         semb = voice_encoder.embed_utterance(y_p)
         np.save(paths.semb/f'{item_id}.npy', semb, allow_pickle=False)
