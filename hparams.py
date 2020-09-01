@@ -7,8 +7,8 @@ data_path = 'data/'
 
 # model ids are separate - that way you can use a new tts with an old wavernn and vice versa
 # NB: expect undefined behaviour if models were trained on different DSP settings
-voc_model_id = 'speaker_emb_raw'
-tts_model_id = 'test_tts'
+voc_model_id = 'speaker_emb_raw_2'
+tts_model_id = 'speaker_emb_tts_2'
 
 # set this to True if you are only interested in WaveRNN
 ignore_tts = False
