@@ -136,8 +136,7 @@ else:
             val_second.append((v_id, v_len))
     val_dataset = val_first + val_second
 
-    for id, text in cleaned_texts:
-        text_dict[id] = text
+    text_dict = {id: text for id, text in cleaned_texts}
 
     print('\naveraging speaker embeddings...')
     avg_sembs = {}
