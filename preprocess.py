@@ -98,10 +98,6 @@ else:
     ])
     print('Creating dict...')
     text_dict, speaker_dict = libri_tts(path, n_workers=n_workers)
-    texts = {t for t in text_dict.values()}
-    print(f'num texts {len(texts)}')
-    print(texts)
-    exit()
 
     speakers = sorted(list(set(speaker_dict.values())))
     speaker_token_dict = {sp_id: i for i, sp_id in enumerate(speakers)}
