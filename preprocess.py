@@ -50,7 +50,7 @@ def trim_silence(wav):
 
 def convert_file(path: Path):
     y = load_wav(path)
-    y = trim_silence(y)
+    y, _ = trim_silence(y)
     peak = np.abs(y).max()
     if hp.peak_norm or peak > 1.0:
         y /= peak
@@ -76,8 +76,7 @@ def process_wav(path: Path):
     return wav_id, m.shape[-1], text, y_p
 
 
-
-wav_files = get_files(path, extension)
+wav_files = get_files(path, extension)[:200]
 paths = Paths(hp.data_path, hp.voc_model_id, hp.tts_model_id)
 
 print(f'\n{len(wav_files)} {extension[1:]} files found in "{path}"\n')
@@ -113,7 +112,7 @@ else:
 
         if item_id in text_dict:
             speaker_id = speaker_dict[item_id]
-            dataset += [(item_id, int(speaker_id), int(length))]
+            dataset += [(item_id, speaker_id, int(length))]
             cleaned_texts += [(item_id, cleaned_text)]
         else:
             print(f'Entry not found for id: {item_id}')
@@ -139,7 +138,7 @@ else:
     val_first, val_second = [], []
     first_val_speaker_ids = set(hp.val_speaker_ids)
     for v_id, v_len in val_dataset:
-        val_speaker_id = int(speaker_dict[v_id])
+        val_speaker_id = speaker_dict[v_id]
         if val_speaker_id in first_val_speaker_ids:
             val_first.append((v_id, v_len))
             first_val_speaker_ids.remove(val_speaker_id)

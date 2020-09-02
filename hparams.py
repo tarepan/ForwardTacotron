@@ -7,8 +7,8 @@ data_path = 'data/'
 
 # model ids are separate - that way you can use a new tts with an old wavernn and vice versa
 # NB: expect undefined behaviour if models were trained on different DSP settings
-voc_model_id = 'resemblyzer_raw'
-tts_model_id = 'resemblyzer_tts'
+voc_model_id = 'resemblyzer_vctk_raw'
+tts_model_id = 'resemblyzer_vctk_tts'
 
 # set this to True if you are only interested in WaveRNN
 ignore_tts = False
@@ -85,7 +85,7 @@ tts_lstm_dims = 512
 tts_postnet_K = 8
 tts_num_highways = 4
 tts_dropout = 0.5
-language = 'en-us'
+language = 'en'
 tts_cleaner_name = 'english_cleaners'
 tts_stop_threshold = -10           # Value below which audio generation ends.
                                     # For example, for a range of [-4, 4], this
