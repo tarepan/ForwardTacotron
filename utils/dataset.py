@@ -115,8 +115,8 @@ def get_tts_datasets(path: Path, batch_size, r, model_type='tacotron'):
         train_dataset = TacoDataset(path, train_ids, text_dict, speaker_id_dict, speaker_token_dict)
         val_dataset = TacoDataset(path, val_ids, text_dict, speaker_id_dict, speaker_token_dict)
     elif model_type == 'forward':
-        train_dataset = ForwardDataset(path, train_ids, text_dict)
-        val_dataset = ForwardDataset(path, val_ids, text_dict)
+        train_dataset = ForwardDataset(path, train_ids, text_dict, speaker_id_dict, speaker_token_dict)
+        val_dataset = ForwardDataset(path, val_ids, text_dict, speaker_id_dict, speaker_token_dict)
     else:
         raise ValueError(f'Unknown model: {model_type}, must be either [tacotron, forward]!')
 
@@ -158,6 +158,7 @@ class TacoDataset(Dataset):
         self.text_dict = text_dict
         self.speaker_dict = speaker_dict
         self.speaker_token_dict = speaker_token_dict
+        self.dataset_ids = dataset_ids
 
     def __getitem__(self, index):
         item_id = self.metadata[index]
@@ -171,27 +172,35 @@ class TacoDataset(Dataset):
         return speaker_token, semb, x, mel, item_id, mel_len
 
     def __len__(self):
-        return len(self.metadata)
+        return len(self.dataset_ids)
 
 
 class ForwardDataset(Dataset):
 
-    def __init__(self, path: Path, dataset_ids, text_dict):
+    def __init__(self, path: Path, dataset_ids, text_dict, speaker_dict, speaker_token_dict):
         self.path = path
         self.metadata = dataset_ids
         self.text_dict = text_dict
+        self.speaker_dict = speaker_dict
+        self.speaker_token_dict = speaker_token_dict
+        self.dataset_ids = dataset_ids
 
     def __getitem__(self, index):
         item_id = self.metadata[index]
         text = self.text_dict[item_id]
+        speaker_id = self.speaker_dict[item_id]
+        speaker_token = self.speaker_token_dict[int(speaker_id)]
+
         x = text_to_sequence(text)
         mel = np.load(self.path/'mel'/f'{item_id}.npy')
         mel_len = mel.shape[-1]
         dur = np.load(self.path/'alg'/f'{item_id}.npy')
-        return x, mel, item_id, mel_len, dur
+        semb = np.load(str(self.path/'semb'/f'{item_id}.npy'))
+
+        return speaker_token, semb, x, mel, item_id, mel_len, dur
 
     def __len__(self):
-        return len(self.metadata)
+        return len(self.dataset_ids)
 
 
 def pad1d(x, max_len):

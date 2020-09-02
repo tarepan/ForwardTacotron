@@ -33,8 +33,8 @@ peak_norm = True                   # Normalise to the peak of each wav file
 # GENERAL TRAINING ----------------------------------------------------------------------------------------------------------#
 
 seed = 42
-n_val = 500                         # num validatino samples
-min_speaker_count = 20 # min count of samples per speaker
+n_val = 50                         # num validatino samples
+min_speaker_count = 2 # min count of samples per speaker
 val_speaker_ids = [6209, 1088, 87, 27] # use these speakers for generating plots
 
 # WAVERNN / VOCODER ------------------------------------------------------------------------------------------------#
@@ -125,7 +125,7 @@ forward_dropout = 0.1
 
 # Training
 
-forward_schedule = [(1e-4, 10_000,  32),    # progressive training schedule
+forward_schedule = [(1e-4, 10_000,  16),    # progressive training schedule
                     (1e-4, 300_000,  32),   # (lr, step, batch_size)
                     (2e-5, 600_000,  32)]   # (lr, step, batch_size)
 

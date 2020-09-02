@@ -55,11 +55,11 @@ class ForwardTrainer:
         duration_avg = Averager()
         device = next(model.parameters()).device  # use same device as model parameters
         for e in range(1, epochs + 1):
-            for i, (x, m, ids, lens, dur) in enumerate(session.train_set, 1):
+            for i, (s_id, semb, x, m, ids, x_lens, m_lens, dur) in enumerate(session.train_set, 1):
 
                 start = time.time()
                 model.train()
-                x, m, dur, lens = x.to(device), m.to(device), dur.to(device), lens.to(device)
+                x, m, dur, lens = x.to(device), m.to(device), dur.to(device), m_lens.to(device)
 
                 m1_hat, m2_hat, dur_hat = model(x, m, dur)
 
@@ -112,12 +112,12 @@ class ForwardTrainer:
         m_val_loss = 0
         dur_val_loss = 0
         device = next(model.parameters()).device
-        for i, (x, m, ids, lens, dur) in enumerate(val_set, 1):
-            x, m, dur, lens = x.to(device), m.to(device), dur.to(device), lens.to(device)
+        for i, (s_id, semb, x, m, ids, x_lens, m_lens, dur) in enumerate(val_set, 1):
+            x, m, dur, m_lens = x.to(device), m.to(device), dur.to(device), m_lens.to(device)
             with torch.no_grad():
                 m1_hat, m2_hat, dur_hat = model(x, m, dur)
-                m1_loss = self.l1_loss(m1_hat, m, lens)
-                m2_loss = self.l1_loss(m2_hat, m, lens)
+                m1_loss = self.l1_loss(m1_hat, m, m_lens)
+                m2_loss = self.l1_loss(m2_hat, m, m_lens)
                 dur_loss = F.l1_loss(dur_hat, dur)
                 m_val_loss += m1_loss.item() + m2_loss.item()
                 dur_val_loss += dur_loss.item()
@@ -127,8 +127,8 @@ class ForwardTrainer:
     def generate_plots(self, model: ForwardTacotron, session: TTSSession) -> None:
         model.eval()
         device = next(model.parameters()).device
-        x, m, ids, lens, dur = session.val_sample
-        x, m, dur = x.to(device), m.to(device), dur.to(device)
+        s_id, semb, x, m, ids, x_lens, m_lens, dur = session.val_sample
+        x, m, semb, dur = x.to(device), m.to(device), semb.to(device), dur.to(device)
 
         m1_hat, m2_hat, dur_hat = model(x, m, dur)
         m1_hat = np_now(m1_hat)[0, :600, :]
