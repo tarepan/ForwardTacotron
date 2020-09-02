@@ -66,14 +66,18 @@ def convert_file(path: Path):
 
 
 def process_wav(path: Path):
-    wav_id = path.stem
-    m, x, y_p = convert_file(path)
-    librosa.effects.trim(y_p, top_db=40, frame_length=2048, hop_length=512)
-    np.save(paths.mel/f'{wav_id}.npy', m, allow_pickle=False)
-    np.save(paths.quant/f'{wav_id}.npy', x, allow_pickle=False)
-    text = text_dict[wav_id]
-    text = clean_text(text)
-    return wav_id, m.shape[-1], text, y_p
+    try:
+        wav_id = path.stem
+        m, x, y_p = convert_file(path)
+        librosa.effects.trim(y_p, top_db=40, frame_length=2048, hop_length=512)
+        np.save(paths.mel/f'{wav_id}.npy', m, allow_pickle=False)
+        np.save(paths.quant/f'{wav_id}.npy', x, allow_pickle=False)
+        text = text_dict[wav_id]
+        text = clean_text(text)
+        return wav_id, m.shape[-1], text, y_p
+    except Exception as e:
+        print(e)
+        return None, None, None, None
 
 
 wav_files = get_files(path, extension)
@@ -108,15 +112,16 @@ else:
     print('\nCreating mels...')
 
     for i, (item_id, length, cleaned_text, m_p) in enumerate(pool.imap_unordered(process_wav, wav_files), 1):
-        semb = voice_encoder.embed_utterance(m_p)
-        np.save(paths.semb/f'{item_id}.npy', semb, allow_pickle=False)
+        if item_id is not None:
+            semb = voice_encoder.embed_utterance(m_p)
+            np.save(paths.semb/f'{item_id}.npy', semb, allow_pickle=False)
 
-        if item_id in text_dict:
-            speaker_id = speaker_dict[item_id]
-            dataset += [(item_id, speaker_id, int(length))]
-            cleaned_texts += [(item_id, cleaned_text)]
-        else:
-            print(f'Entry not found for id: {item_id}')
+            if item_id in text_dict:
+                speaker_id = speaker_dict[item_id]
+                dataset += [(item_id, speaker_id, int(length))]
+                cleaned_texts += [(item_id, cleaned_text)]
+            else:
+                print(f'Entry not found for id: {item_id}')
         bar = progbar(i, len(wav_files))
         message = f'{bar} {i}/{len(wav_files)} '
         stream(message)
