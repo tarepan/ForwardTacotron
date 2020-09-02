@@ -111,9 +111,10 @@ def get_tts_datasets(path: Path, batch_size, r, model_type='tacotron'):
     text_dict = unpickle_binary(path/'text_dict.pkl')
     speaker_id_dict = unpickle_binary(path/'speaker_dict.pkl')
     speaker_token_dict = unpickle_binary(path/'speaker_token_dict.pkl')
+    semb_dict = unpickle_binary(path/'speaker_emb_dict.pkl')
     if model_type == 'tacotron':
-        train_dataset = TacoDataset(path, train_ids, text_dict, speaker_id_dict, speaker_token_dict)
-        val_dataset = TacoDataset(path, val_ids, text_dict, speaker_id_dict, speaker_token_dict)
+        train_dataset = TacoDataset(path, train_ids, text_dict, speaker_id_dict, speaker_token_dict, semb_dict)
+        val_dataset = TacoDataset(path, val_ids, text_dict, speaker_id_dict, speaker_token_dict, semb_dict)
     elif model_type == 'forward':
         train_dataset = ForwardDataset(path, train_ids, text_dict, speaker_id_dict, speaker_token_dict)
         val_dataset = ForwardDataset(path, val_ids, text_dict, speaker_id_dict, speaker_token_dict)
@@ -152,13 +153,14 @@ def filter_max_len(dataset):
 
 class TacoDataset(Dataset):
 
-    def __init__(self, path: Path, dataset_ids, text_dict, speaker_dict, speaker_token_dict):
+    def __init__(self, path: Path, dataset_ids, text_dict, speaker_dict, speaker_token_dict, semb_dict):
         self.path = path
         self.metadata = dataset_ids
         self.text_dict = text_dict
         self.speaker_dict = speaker_dict
         self.speaker_token_dict = speaker_token_dict
         self.dataset_ids = dataset_ids
+        self.semb_dict = semb_dict
 
     def __getitem__(self, index):
         item_id = self.metadata[index]
@@ -168,7 +170,8 @@ class TacoDataset(Dataset):
         x = text_to_sequence(text)
         mel = np.load(str(self.path/'mel'/f'{item_id}.npy'))
         mel_len = mel.shape[-1]
-        semb = np.load(str(self.path/'semb'/f'{item_id}.npy'))
+        #semb = np.load(str(self.path/'semb'/f'{item_id}.npy'))
+        semb = self.semb_dict[speaker_id]
         return speaker_token, semb, x, mel, item_id, mel_len
 
     def __len__(self):
