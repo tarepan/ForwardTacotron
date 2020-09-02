@@ -23,19 +23,19 @@ fft_bins = n_fft // 2 + 1
 num_mels = 80
 hop_length = 256                    # 12.5ms - in line with Tacotron 2 paper
 win_length = 1024                   # 50ms - same reason as above
-fmin = 0
+fmin = 500
 fmax = 8000
 bits = 9                            # bit depth of signal
 mu_law = True                       # Recommended to suppress noise if using raw bits in hp.voc_mode below
-peak_norm = True                   # Normalise to the peak of each wav file
-
+peak_norm = False                   # Normalise to the peak of each wav file
+trim_silence_top_db = 20           # db threshold for trimming
 
 # GENERAL TRAINING ----------------------------------------------------------------------------------------------------------#
 
 seed = 42
 n_val = 50                         # num validatino samples
 min_speaker_count = 2 # min count of samples per speaker
-val_speaker_ids = [6209, 1088, 87, 27] # use these speakers for generating plots
+val_speaker_ids = ['p226', 'p227', 'p228', 'p229'] # use these speakers for generating plots
 
 # WAVERNN / VOCODER ------------------------------------------------------------------------------------------------#
 
@@ -102,7 +102,7 @@ tts_schedule = [(10,  1e-3,  10_000,  32),   # progressive training schedule
 tts_max_mel_len = 1250              # if you have a couple of extremely long spectrograms you might want to use this
 tts_clip_grad_norm = 1.0            # clips the gradient norm to prevent explosion - set to None if not needed
 tts_checkpoint_every = 10_000        # checkpoints the model every X steps
-tts_plot_every = 1000
+tts_plot_every = 1
 
 # ------------------------------------------------------------------------------------------------------------------#
 

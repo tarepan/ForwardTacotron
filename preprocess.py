@@ -45,7 +45,7 @@ voice_encoder = VoiceEncoder()
 
 
 def trim_silence(wav):
-    return librosa.effects.trim(wav, top_db=40, frame_length=2048, hop_length=512)
+    return librosa.effects.trim(wav, top_db=hp.trim_silence_top_db, frame_length=2048, hop_length=512)
 
 
 def convert_file(path: Path):
@@ -76,7 +76,7 @@ def process_wav(path: Path):
     return wav_id, m.shape[-1], text, y_p
 
 
-wav_files = get_files(path, extension)[:200]
+wav_files = get_files(path, extension)
 paths = Paths(hp.data_path, hp.voc_model_id, hp.tts_model_id)
 
 print(f'\n{len(wav_files)} {extension[1:]} files found in "{path}"\n')
@@ -98,6 +98,11 @@ else:
     ])
     print('Creating dict...')
     text_dict, speaker_dict = libri_tts(path, n_workers=n_workers)
+    texts = {t for t in text_dict.values()}
+    print(f'num texts {len(texts)}')
+    print(texts)
+    exit()
+
     speakers = sorted(list(set(speaker_dict.values())))
     speaker_token_dict = {sp_id: i for i, sp_id in enumerate(speakers)}
 
