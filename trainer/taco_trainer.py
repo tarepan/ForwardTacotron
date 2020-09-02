@@ -145,7 +145,7 @@ class TacoTrainer:
             att = att_np[0]
             m1_hat = m1_hat_np[0, :, :]
             m2_hat = m2_hat_np[0, :, :]
-            m_target_np = np_now(m)
+            m_target_np = np_now(m[:, :, :m_len])
             m_target = m_target_np[idx, :, :]
 
             att_fig = plot_attention(att)
