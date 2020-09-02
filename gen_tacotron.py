@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import torch
 from models.fatchord_version import WaveRNN
 from utils import hparams as hp
@@ -8,6 +10,8 @@ import argparse
 from utils.text import text_to_sequence, clean_text
 from utils.display import save_attention, simple_table
 from utils.dsp import reconstruct_waveform, save_wav
+from resemblyzer import VoiceEncoder, preprocess_wav
+
 import numpy as np
 
 if __name__ == '__main__':
@@ -115,6 +119,12 @@ if __name__ == '__main__':
     tts_load_path = tts_weights if tts_weights else paths.tts_latest_weights
     tts_model.load(tts_load_path)
 
+    # get speaker embedding
+    voice_encoder = VoiceEncoder()
+    sample_files = list(Path('/Users/cschaefe/datasets/audio_data/Cutted_merged').glob('**/*.wav'))[:10]
+    sample_wavs = [preprocess_wav(w) for w in sample_files]
+    semb = voice_encoder.embed_speaker(sample_wavs)
+
     if input_text:
         text = clean_text(input_text.strip())
         inputs = [text_to_sequence(text)]
@@ -145,7 +155,7 @@ if __name__ == '__main__':
     for i, x in enumerate(inputs, 1):
 
         print(f'\n| Generating {i}/{len(inputs)}')
-        _, m, attention = tts_model.generate(x, args.speaker_id)
+        _, m, attention = tts_model.generate(x, semb)
 
         if args.vocoder == 'griffinlim':
             v_type = args.vocoder
@@ -155,9 +165,9 @@ if __name__ == '__main__':
             v_type = 'wavernn_unbatched'
 
         if input_text:
-            save_path = paths.tts_output/f'__input_{input_text[:10]}_{v_type}_{tts_k}k_sid{args.speaker_id}.wav'
+            save_path = paths.tts_output/f'__input_{input_text[:10]}_{v_type}_{tts_k}.wav'
         else:
-            save_path = paths.tts_output/f'{i}_{v_type}_{tts_k}k_sid{args.speaker_id}.wav'
+            save_path = paths.tts_output/f'{i}_{v_type}_{tts_k}.wav'
 
         if save_attn: save_attention(attention, save_path)
 

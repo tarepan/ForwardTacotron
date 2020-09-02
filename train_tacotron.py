@@ -12,6 +12,7 @@ from utils.checkpoints import restore_checkpoint
 from utils.dataset import get_tts_datasets
 from utils.display import *
 from utils.dsp import np_now
+from utils.files import unpickle_binary
 from utils.paths import Paths
 from utils.text import phonemes
 
@@ -47,10 +48,10 @@ def create_align_features(model: Tacotron,
     device = next(model.parameters()).device  # use same device as model parameters
     iters = len(val_set) + len(train_set)
     dataset = itertools.chain(train_set, val_set)
-    for i, (x, mels, ids, mel_lens) in enumerate(dataset, 1):
-        x, mels = x.to(device), mels.to(device)
+    for i, (s_id, semb, x, mels, ids, x_lens, mel_lens) in enumerate(dataset, 1):
+        x, mels, semb = x.to(device), mels.to(device), semb.to(device)
         with torch.no_grad():
-            _, _, attn = model(x, mels)
+            _, _, attn = model(x, mels, semb)
         attn = np_now(attn)
         bs, chars = attn.shape[0], attn.shape[2]
         argmax = np.argmax(attn[:, :, :], axis=2)
@@ -64,6 +65,7 @@ def create_align_features(model: Tacotron,
             mel_counts[b, :len(count)] = count[:len(count)]
 
         for j, item_id in enumerate(ids):
+            print(mel_counts[j, :])
             np.save(str(save_path / f'{item_id}.npy'), mel_counts[j, :], allow_pickle=False)
         bar = progbar(i, iters)
         msg = f'{bar} {i}/{iters} Batches '
@@ -130,7 +132,7 @@ if __name__ == '__main__':
         print('\n\nYou can now train WaveRNN on GTA features - use python train_wavernn.py --gta\n')
     elif force_align:
         print('Creating Attention Alignments...\n')
-        train_set, val_set = get_tts_datasets(paths.data, 8, model.r)
+        train_set, val_set = get_tts_datasets(paths.data, 1, model.r)
         create_align_features(model, train_set, val_set, paths.alg)
         print('\n\nYou can now train ForwardTacotron - use python train_forward.py\n')
     else:

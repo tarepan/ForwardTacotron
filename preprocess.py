@@ -62,12 +62,12 @@ def convert_file(path: Path):
 
 def process_wav(path: Path):
     wav_id = path.stem
-    #m, x, y_p = convert_file(path)
-    #np.save(paths.mel/f'{wav_id}.npy', m, allow_pickle=False)
-    #np.save(paths.quant/f'{wav_id}.npy', x, allow_pickle=False)
+    m, x, y_p = convert_file(path)
+    np.save(paths.mel/f'{wav_id}.npy', m, allow_pickle=False)
+    np.save(paths.quant/f'{wav_id}.npy', x, allow_pickle=False)
     text = text_dict[wav_id]
     text = clean_text(text)
-    return wav_id, 10, text, None
+    return wav_id, m.shape[-1], text, y_p
 
 
 wav_files = get_files(path, extension)
@@ -101,8 +101,8 @@ else:
     print('\nCreating mels...')
 
     for i, (item_id, length, cleaned_text, m_p) in enumerate(pool.imap_unordered(process_wav, wav_files), 1):
-        #semb = voice_encoder.embed_utterance(m_p)
-        #np.save(paths.semb/f'{item_id}.npy', semb, allow_pickle=False)
+        semb = voice_encoder.embed_utterance(m_p)
+        np.save(paths.semb/f'{item_id}.npy', semb, allow_pickle=False)
 
         if item_id in text_dict:
             speaker_id = speaker_dict[item_id]
@@ -140,6 +140,7 @@ else:
             val_second.append((v_id, v_len))
     val_dataset = val_first + val_second
 
+    text_dict = {id: text for id, text in cleaned_texts}
 
     print('\naveraging speaker embeddings...')
     avg_sembs = {}
