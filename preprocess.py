@@ -44,8 +44,13 @@ path = args.path
 voice_encoder = VoiceEncoder()
 
 
+def trim_silence(wav):
+    return librosa.effects.trim(wav, top_db=40, frame_length=2048, hop_length=512)
+
+
 def convert_file(path: Path):
     y = load_wav(path)
+    y = trim_silence(y)
     peak = np.abs(y).max()
     if hp.peak_norm or peak > 1.0:
         y /= peak
@@ -63,11 +68,13 @@ def convert_file(path: Path):
 def process_wav(path: Path):
     wav_id = path.stem
     m, x, y_p = convert_file(path)
+    librosa.effects.trim(y_p, top_db=40, frame_length=2048, hop_length=512)
     np.save(paths.mel/f'{wav_id}.npy', m, allow_pickle=False)
     np.save(paths.quant/f'{wav_id}.npy', x, allow_pickle=False)
     text = text_dict[wav_id]
     text = clean_text(text)
     return wav_id, m.shape[-1], text, y_p
+
 
 
 wav_files = get_files(path, extension)
