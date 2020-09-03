@@ -170,8 +170,8 @@ class TacoDataset(Dataset):
         x = text_to_sequence(text)
         mel = np.load(str(self.path/'mel'/f'{item_id}.npy'))
         mel_len = mel.shape[-1]
-        #semb = np.load(str(self.path/'semb'/f'{item_id}.npy'))
-        semb = self.semb_dict[speaker_id]
+        semb = np.load(str(self.path/'semb'/f'{item_id}.npy'))
+        #semb = self.semb_dict[speaker_id]
         return speaker_token, semb, x, mel, item_id, mel_len
 
     def __len__(self):
