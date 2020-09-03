@@ -192,7 +192,7 @@ class ForwardDataset(Dataset):
         item_id = self.metadata[index]
         text = self.text_dict[item_id]
         speaker_id = self.speaker_dict[item_id]
-        speaker_token = self.speaker_token_dict[int(speaker_id)]
+        speaker_token = self.speaker_token_dict[speaker_id]
 
         x = text_to_sequence(text)
         mel = np.load(self.path/'mel'/f'{item_id}.npy')
