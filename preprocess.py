@@ -1,7 +1,7 @@
 import glob
 from collections import Counter
 from random import Random
-from resemblyzer import VoiceEncoder, preprocess_wav
+from resemblyzer import VoiceEncoder, preprocess_wav, trim_long_silences
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
@@ -50,7 +50,8 @@ def trim_silence(wav):
 
 def convert_file(path: Path):
     y = load_wav(path)
-    y, _ = trim_silence(y)
+    #y, _ = trim_silence(y)
+    y = trim_long_silences(y)
     peak = np.abs(y).max()
     if hp.peak_norm or peak > 1.0:
         y /= peak
