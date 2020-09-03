@@ -204,9 +204,6 @@ class LSA(nn.Module):
         self.attention = scores
         self.cumulative += self.attention
 
-        values, indices = scores.max(1)
-        print(f'{t} {indices}')
-
         return scores.unsqueeze(-1).transpose(1, 2)
 
 
