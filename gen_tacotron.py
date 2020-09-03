@@ -8,9 +8,10 @@ from utils.paths import Paths
 from models.tacotron import Tacotron
 import argparse
 from utils.text import text_to_sequence, clean_text
-from utils.display import save_attention, simple_table
+from utils.display import save_attention, simple_table, plot_attention
 from utils.dsp import reconstruct_waveform, save_wav
 from resemblyzer import VoiceEncoder, preprocess_wav
+import matplotlib.pyplot as plt
 
 import numpy as np
 
@@ -156,7 +157,6 @@ if __name__ == '__main__':
 
         print(f'\n| Generating {i}/{len(inputs)}')
         _, m, attention = tts_model.generate(x, semb)
-
         if args.vocoder == 'griffinlim':
             v_type = args.vocoder
         elif args.vocoder == 'wavernn' and args.batched:
@@ -177,5 +177,7 @@ if __name__ == '__main__':
         elif args.vocoder == 'griffinlim':
             wav = reconstruct_waveform(m, n_iter=args.iters)
             save_wav(wav, save_path)
+        fig = plot_attention(attention)
+        plt.savefig(paths.tts_output/f'{i}_{v_type}_{tts_k}_att.png')
 
     print('\n\nDone.\n')
