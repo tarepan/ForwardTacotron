@@ -61,7 +61,7 @@ class ForwardTrainer:
 
                 start = time.time()
                 model.train()
-                x, m, dur, lens = x.to(device), m.to(device), dur.to(device), m_lens.to(device)
+                x, m, dur, lens, s_id, semb = x.to(device), m.to(device), dur.to(device), m_lens.to(device), s_id.to(device), semb.to(device)
 
                 m1_hat, m2_hat, dur_hat = model(x, m, dur, semb)
 
