@@ -178,7 +178,7 @@ class ForwardTrainer:
 
             text = clean_text('Ideas engineering is changing the world for the better.')
             inputs = text_to_sequence(text)
-            m1_hat, m2_hat, att = model.generate([inputs], gen_semb)
+            m1_hat, m2_hat, att = model.generate(inputs, gen_semb)
             m1_hat_fig = plot_mel(m1_hat)
             m2_hat_fig = plot_mel(m2_hat)
             m_target_fig = plot_mel(m_target)
