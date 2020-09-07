@@ -111,6 +111,7 @@ tts_plot_every = 1000
 
 
 # Model Hparams
+forward_speaker_emb_dim = 256
 forward_embed_dims = 256                # embedding dimension for the graphemes/phoneme inputs
 forward_prenet_dims = 256
 forward_postnet_dims = 256
@@ -132,7 +133,7 @@ forward_schedule = [(1e-4, 10_000,  16),    # progressive training schedule
 forward_max_mel_len = 1250              # if you have a couple of extremely long spectrograms you might want to use this
 forward_clip_grad_norm = 1.0            # clips the gradient norm to prevent explosion - set to None if not needed
 forward_checkpoint_every = 10_000        # checkpoints the model every X steps
-forward_plot_every = 1000
+forward_plot_every = 100
 
 # ------------------------------------------------------------------------------------------------------------------#
 

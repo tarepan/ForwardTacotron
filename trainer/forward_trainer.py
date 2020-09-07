@@ -1,6 +1,7 @@
 import time
 import torch.nn.functional as F
-
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 from typing import Tuple
 
 import torch
@@ -14,8 +15,9 @@ from utils import hparams as hp
 from utils.checkpoints import save_checkpoint
 from utils.dataset import get_tts_datasets
 from utils.decorators import ignore_exception
-from utils.display import stream, simple_table, plot_mel
+from utils.display import stream, simple_table, plot_mel, plot_cos_matrix
 from utils.dsp import reconstruct_waveform, np_now
+from utils.files import unpickle_binary
 from utils.paths import Paths
 
 
@@ -61,7 +63,7 @@ class ForwardTrainer:
                 model.train()
                 x, m, dur, lens = x.to(device), m.to(device), dur.to(device), m_lens.to(device)
 
-                m1_hat, m2_hat, dur_hat = model(x, m, dur)
+                m1_hat, m2_hat, dur_hat = model(x, m, dur, semb)
 
                 m1_loss = self.l1_loss(m1_hat, m, lens)
                 m2_loss = self.l1_loss(m2_hat, m, lens)
@@ -113,9 +115,9 @@ class ForwardTrainer:
         dur_val_loss = 0
         device = next(model.parameters()).device
         for i, (s_id, semb, x, m, ids, x_lens, m_lens, dur) in enumerate(val_set, 1):
-            x, m, dur, m_lens = x.to(device), m.to(device), dur.to(device), m_lens.to(device)
+            s_id, semb, x, m, dur, m_lens = s_id.to(device), semb.to(device), x.to(device), m.to(device), dur.to(device), m_lens.to(device)
             with torch.no_grad():
-                m1_hat, m2_hat, dur_hat = model(x, m, dur)
+                m1_hat, m2_hat, dur_hat = model(x, m, dur, semb)
                 m1_loss = self.l1_loss(m1_hat, m, m_lens)
                 m2_loss = self.l1_loss(m2_hat, m, m_lens)
                 dur_loss = F.l1_loss(dur_hat, dur)
@@ -128,44 +130,65 @@ class ForwardTrainer:
         model.eval()
         device = next(model.parameters()).device
         s_id, semb, x, m, ids, x_lens, m_lens, dur = session.val_sample
-        x, m, semb, dur = x.to(device), m.to(device), semb.to(device), dur.to(device)
+        x, semb, m, s_id, dur = x.to(device), semb.to(device), m.to(device), s_id.to(device), dur.to(device)
 
-        m1_hat, m2_hat, dur_hat = model(x, m, dur)
-        m1_hat = np_now(m1_hat)[0, :600, :]
-        m2_hat = np_now(m2_hat)[0, :600, :]
-        m = np_now(m)[0, :600, :]
+        # plot speaker cosine similarity matrix
+        speaker_emb_dict = unpickle_binary(self.paths.data / 'speaker_emb_dict.pkl')
+        speaker_token_dict = unpickle_binary(self.paths.data / 'speaker_token_dict.pkl')
+        token_speaker_dict = {v: k for k, v in speaker_token_dict.items()}
+        speaker_ids = sorted(list(speaker_emb_dict.keys()))[:20]
+        embeddings = [speaker_emb_dict[s_id] for s_id in speaker_ids]
+        cos_mat = cosine_similarity(embeddings)
+        np.fill_diagonal(cos_mat, 0)
+        cos_mat_fig = plot_cos_matrix(cos_mat, labels=speaker_ids)
+        self.writer.add_figure('Embedding_Metrics/speaker_cosine_dist', cos_mat_fig, model.step)
 
-        m1_hat_fig = plot_mel(m1_hat)
-        m2_hat_fig = plot_mel(m2_hat)
-        m_fig = plot_mel(m)
+        for idx in range(len(hp.val_speaker_ids)):
+            x_len = x_lens[idx]
+            m_len = m_lens[idx]
+            m1_hat, m2_hat, dur_hat = model(x[idx:idx+1, :x_len], m[idx:idx+1, :, :m_len], dur[idx:idx+1], semb[idx:idx+1])
+            m1_hat_np = np_now(m1_hat)
+            m2_hat_np = np_now(m2_hat)
+            gen_sid = int(s_id[idx].cpu())
+            gen_semb = semb[idx].cpu()
+            target_sid = token_speaker_dict[gen_sid]
+            m1_hat = m1_hat_np[0, :, :]
+            m2_hat = m2_hat_np[0, :, :]
+            m_target_np = np_now(m)
+            m_target = m_target_np[idx, :, :m_len]
 
-        self.writer.add_figure('Ground_Truth_Aligned/target', m_fig, model.step)
-        self.writer.add_figure('Ground_Truth_Aligned/linear', m1_hat_fig, model.step)
-        self.writer.add_figure('Ground_Truth_Aligned/postnet', m2_hat_fig, model.step)
+            m1_hat_fig = plot_mel(m1_hat)
+            m2_hat_fig = plot_mel(m2_hat)
+            m_target_fig = plot_mel(m_target)
 
-        m2_hat_wav = reconstruct_waveform(m2_hat)
-        target_wav = reconstruct_waveform(m)
+            self.writer.add_figure(f'Ground_Truth_Aligned_{idx}_SID_{target_sid}/target', m_target_fig, model.step)
+            self.writer.add_figure(f'Ground_Truth_Aligned_{idx}_SID_{target_sid}/linear', m1_hat_fig, model.step)
+            self.writer.add_figure(f'Ground_Truth_Aligned_{idx}_SID_{target_sid}/postnet', m2_hat_fig, model.step)
 
-        self.writer.add_audio(
-            tag='Ground_Truth_Aligned/target_wav', snd_tensor=target_wav,
-            global_step=model.step, sample_rate=hp.sample_rate)
-        self.writer.add_audio(
-            tag='Ground_Truth_Aligned/postnet_wav', snd_tensor=m2_hat_wav,
-            global_step=model.step, sample_rate=hp.sample_rate)
+            m2_hat_wav = reconstruct_waveform(m2_hat)
+            target_wav = reconstruct_waveform(m_target)
 
-        m1_hat, m2_hat, dur_hat = model.generate(x[0].tolist())
-        m1_hat_fig = plot_mel(m1_hat)
-        m2_hat_fig = plot_mel(m2_hat)
+            self.writer.add_audio(
+                tag=f'Ground_Truth_Aligned_{idx}_SID_{target_sid}/target_wav', snd_tensor=target_wav,
+                global_step=model.step, sample_rate=hp.sample_rate)
+            self.writer.add_audio(
+                tag=f'Ground_Truth_Aligned_{idx}_SID_{target_sid}/postnet_wav', snd_tensor=m2_hat_wav,
+                global_step=model.step, sample_rate=hp.sample_rate)
 
-        self.writer.add_figure('Generated/target', m_fig, model.step)
-        self.writer.add_figure('Generated/linear', m1_hat_fig, model.step)
-        self.writer.add_figure('Generated/postnet', m2_hat_fig, model.step)
+            m1_hat, m2_hat, att = model.generate(x[idx].tolist(), gen_semb)
+            m1_hat_fig = plot_mel(m1_hat)
+            m2_hat_fig = plot_mel(m2_hat)
+            m_target_fig = plot_mel(m_target)
 
-        m2_hat_wav = reconstruct_waveform(m2_hat)
+            self.writer.add_figure(f'Generated_{idx}_SID_{target_sid}/target', m_target_fig, model.step)
+            self.writer.add_figure(f'Generated_{idx}_SID_{target_sid}/linear', m1_hat_fig, model.step)
+            self.writer.add_figure(f'Generated_{idx}_SID_{target_sid}/postnet', m2_hat_fig, model.step)
 
-        self.writer.add_audio(
-            tag='Generated/target_wav', snd_tensor=target_wav,
-            global_step=model.step, sample_rate=hp.sample_rate)
-        self.writer.add_audio(
-            tag='Generated/postnet_wav', snd_tensor=m2_hat_wav,
-            global_step=model.step, sample_rate=hp.sample_rate)
+            m2_hat_wav = reconstruct_waveform(m2_hat)
+
+            self.writer.add_audio(
+                tag=f'Generated_{idx}_SID_{target_sid}/target_wav', snd_tensor=target_wav,
+                global_step=model.step, sample_rate=hp.sample_rate)
+            self.writer.add_audio(
+                tag=f'Generated_{idx}_SID_{target_sid}/postnet_wav', snd_tensor=m2_hat_wav,
+                global_step=model.step, sample_rate=hp.sample_rate)

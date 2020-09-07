@@ -95,12 +95,13 @@ class ForwardTacotron(nn.Module):
                  postnet_dims,
                  highways,
                  dropout,
-                 n_mels):
+                 n_mels,
+                 speaker_emb_dim):
         super().__init__()
         self.rnn_dim = rnn_dim
         self.embedding = nn.Embedding(num_chars, embed_dims)
         self.lr = LengthRegulator()
-        self.dur_pred = DurationPredictor(embed_dims,
+        self.dur_pred = DurationPredictor(embed_dims+speaker_emb_dim,
                                           conv_dims=durpred_conv_dims,
                                           rnn_dims=durpred_rnn_dims,
                                           dropout=durpred_dropout)
@@ -109,7 +110,7 @@ class ForwardTacotron(nn.Module):
                            channels=prenet_dims,
                            proj_channels=[prenet_dims, embed_dims],
                            num_highways=highways)
-        self.lstm = nn.LSTM(2 * prenet_dims,
+        self.lstm = nn.LSTM(2 * prenet_dims + speaker_emb_dim,
                             rnn_dim,
                             batch_first=True,
                             bidirectional=True)
@@ -123,17 +124,27 @@ class ForwardTacotron(nn.Module):
         self.dropout = dropout
         self.post_proj = nn.Linear(2 * postnet_dims, n_mels, bias=False)
 
-    def forward(self, x, mel, dur):
+    def forward(self, x, mel, dur, s_emb):
         if self.training:
             self.step += 1
 
         x = self.embedding(x)
-        dur_hat = self.dur_pred(x)
+
+        dur_x = x
+        speaker_emb = s_emb[:, None, :]
+        speaker_emb = speaker_emb.repeat(1, dur_x.shape[1], 1)
+        dur_x = torch.cat([dur_x, speaker_emb], dim=2)
+        dur_hat = self.dur_pred(dur_x)
         dur_hat = dur_hat.squeeze()
 
         x = x.transpose(1, 2)
         x = self.prenet(x)
         x = self.lr(x, dur)
+
+        speaker_emb = s_emb[:, None, :]
+        speaker_emb = speaker_emb.repeat(1, x.shape[1], 1)
+        x = torch.cat([x, speaker_emb], dim=2)
+
         x, _ = self.lstm(x)
         x = F.dropout(x,
                       p=self.dropout,
@@ -149,18 +160,29 @@ class ForwardTacotron(nn.Module):
         x = self.pad(x, mel.size(2))
         return x, x_post, dur_hat
 
-    def generate(self, x, alpha=1.0):
+    def generate(self, x, s_emb, alpha=1.0):
         self.eval()
         device = next(self.parameters()).device  # use same device as parameters
         x = torch.as_tensor(x, dtype=torch.long, device=device).unsqueeze(0)
+        s_emb = torch.as_tensor(s_emb, dtype=torch.float, device=device).unsqueeze(0)
 
         x = self.embedding(x)
-        dur = self.dur_pred(x, alpha=alpha)
+
+        dur_x = x
+        speaker_emb = s_emb[:, None, :]
+        speaker_emb = speaker_emb.repeat(1, dur_x.shape[1], 1)
+        dur_x = torch.cat([dur_x, speaker_emb], dim=2)
+        dur = self.dur_pred(dur_x, alpha=alpha)
         dur = dur.squeeze(2)
 
         x = x.transpose(1, 2)
         x = self.prenet(x)
         x = self.lr(x, dur)
+
+        speaker_emb = s_emb[:, None, :]
+        speaker_emb = speaker_emb.repeat(1, x.shape[1], 1)
+        x = torch.cat([x, speaker_emb], dim=2)
+
         x, _ = self.lstm(x)
         x = F.dropout(x,
                       p=self.dropout,

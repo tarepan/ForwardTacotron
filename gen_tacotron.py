@@ -123,7 +123,7 @@ if __name__ == '__main__':
     # get speaker embedding
     voice_encoder = VoiceEncoder()
     #enc_path = '/Users/cschaefe/datasets/LJSpeech/LJSpeech-1.1/'
-    enc_path = '/Users/cschaefe/datasets/LibriTTS/test-clean/1089'
+    enc_path = '/Users/cschaefe/Downloads/merkel'
     enc_path = Path(enc_path)
     sample_files = list(enc_path.glob('**/*.wav'))[:1]
     #sample_files = list(Path('/Users/cschaefe/datasets/audio_data/Cutted_merged').glob('**/*.wav'))[:10]
@@ -172,7 +172,7 @@ if __name__ == '__main__':
         if input_text:
             save_path = paths.tts_output/f'__input_{input_text[:10]}_{v_type}_{tts_k}.wav'
         else:
-            save_path = paths.tts_output/f'{i}_{v_type}_{tts_k}.wav'
+            save_path = paths.tts_output/f'{i}_{v_type}_{tts_k}_{enc_path.stem}.wav'
 
         if save_attn: save_attention(attention, save_path)
 
