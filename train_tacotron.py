@@ -58,6 +58,7 @@ def create_align_features(model: Tacotron,
         bs, chars = attn.shape[0], attn.shape[2]
         argmax = np.argmax(attn[:, :, :], axis=2)
         mel_counts = np.zeros(shape=(bs, chars), dtype=np.int32)
+        loc_score, sharp_score = attention_score(torch.tensor(attn), mel_lens, r=model.r)
         for b in range(attn.shape[0]):
             # fix random jumps in attention
 
@@ -67,12 +68,11 @@ def create_align_features(model: Tacotron,
             count = np.bincount(argmax[b, :mel_lens[b]])
             mel_counts[b, :len(count)] = count[:len(count)]
 
-            loc_score, sharp_score = attention_score(torch.tensor(attn), mel_lens, r=model.r)
-            print(f'loc score {loc_score}, sharp score {sharp_score}')
+            print(f'loc score {loc_score[b]}, sharp score {sharp_score[b]}')
             fig = plot_attention(attn[b, :])
-            plt.savefig(f'/tmp/att/{ids[b]}_loc_{float(loc_score)}_sharp_{float(sharp_score)}.png')
+            plt.savefig(f'/tmp/att/{ids[b]}_loc_{float(loc_score[b])}_sharp_{float(sharp_score[b])}.png')
             plt.close(fig)
-            att_score_dict[ids[b]] = (float(loc_score), float(sharp_score))
+            att_score_dict[ids[b]] = (float(loc_score[b]), float(sharp_score[b]))
 
         for j, item_id in enumerate(ids):
             print(mel_counts[j, :])
