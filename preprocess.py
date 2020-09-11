@@ -72,7 +72,10 @@ class Preprocessor:
             text = clean_text(text)
             return wav_id, m.shape[-1], text, y_p
         except Exception as e:
-            traceback.print_stack(e)
+            try:
+                traceback.print_stack(e)
+            except:
+                pass
             return None, None, None, None
 
 
