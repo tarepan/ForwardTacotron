@@ -101,7 +101,7 @@ class TacoTrainer:
 
             val_loss, val_att_score = self.evaluate(model, session.val_set)
             self.writer.add_scalar('Loss/val', val_loss, model.get_step())
-            self.writer.add_scalar('AttentionScore/val', val_att_score, model.get_step())
+            self.writer.add_scalar('Attention_Score/val', val_att_score, model.get_step())
             save_checkpoint('tts', self.paths, model, optimizer, is_silent=True)
 
             loss_avg.reset()
