@@ -28,7 +28,12 @@ fmax = 8000
 bits = 9                            # bit depth of signal
 mu_law = True                       # Recommended to suppress noise if using raw bits in hp.voc_mode below
 peak_norm = False                   # Normalise to the peak of each wav file
-trim_silence_top_db = 20           # db threshold for trimming
+
+partials_n_frames = 160     # 1600 ms
+vad_window_length = 30  # In milliseconds
+vad_moving_average_width = 8
+vad_max_silence_length = 6
+vad_sample_rate = 16000
 
 # GENERAL TRAINING ----------------------------------------------------------------------------------------------------------#
 
