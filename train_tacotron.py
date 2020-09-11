@@ -60,11 +60,6 @@ def create_align_features(model: Tacotron,
         mel_counts = np.zeros(shape=(bs, chars), dtype=np.int32)
         loc_score, sharp_score = attention_score(torch.tensor(attn), mel_lens, r=model.r)
         for b in range(attn.shape[0]):
-            # fix random jumps in attention
-
-            for j in range(1, argmax.shape[1]):
-                if abs(argmax[b, j] - argmax[b, j-1]) > 10:
-                    argmax[b, j] = argmax[b, j-1]
             count = np.bincount(argmax[b, :mel_lens[b]])
             mel_counts[b, :len(count)] = count[:len(count)]
 
