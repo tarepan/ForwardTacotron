@@ -21,7 +21,7 @@ def ljspeech(path: Union[str, Path]):
     return text_dict
 
 
-def libri_tts(path: Union[str, Path], n_workers, extension='.txt') -> Tuple[dict, dict]:
+def vctk(path: Union[str, Path], n_workers, extension='.txt') -> Tuple[dict, dict]:
     files = list(Path(path).glob('**/*' + extension))
     text_dict = {}
     speaker_id_dict = {}
@@ -37,7 +37,7 @@ def libri_tts(path: Union[str, Path], n_workers, extension='.txt') -> Tuple[dict
     return text_dict, speaker_id_dict
 
 
-def vctk(path: Union[str, Path], n_workers, extension='.normalized.txt') -> Tuple[dict, dict]:
+def libri_tts(path: Union[str, Path], n_workers, extension='.normalized.txt') -> Tuple[dict, dict]:
     files = list(Path(path).glob('**/*' + extension))
     text_dict = {}
     speaker_id_dict = {}

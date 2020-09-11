@@ -7,9 +7,12 @@ from torch.optim.optimizer import Optimizer
 from torch.utils.data import Dataset
 from torch.utils.tensorboard import SummaryWriter
 from sklearn.metrics.pairwise import cosine_similarity
+from typing import Tuple
+
 from models.tacotron import Tacotron
 from trainer.common import Averager, TTSSession
 from utils import hparams as hp
+from utils.attention_score import attention_score
 from utils.checkpoints import save_checkpoint
 from utils.dataset import get_tts_datasets
 from utils.decorators import ignore_exception
@@ -54,12 +57,15 @@ class TacoTrainer:
         duration_avg = Averager()
         device = next(model.parameters()).device  # use same device as model parameters
         for e in range(1, epochs + 1):
-            for i, (s_id, semb, x, m, ids, x_lens, m_lens) in enumerate(session.train_set, 1):
+            for i, (s_id, semb, x, m, ids, x_lens, mel_lens) in enumerate(session.train_set, 1):
                 start = time.time()
                 model.train()
-                x, semb, m, s_id = x.to(device), semb.to(device), m.to(device), s_id.to(device)
+                x, semb, m, s_id, x_lens, mel_lens = x.to(device), semb.to(device), m.to(device), s_id.to(device), x_lens.to(device), mel_lens.to(device)
 
                 m1_hat, m2_hat, attention = model(x, m, semb)
+
+                loc_score, sharp_score = attention_score(attention, mel_lens, r=model.r)
+                att_score = torch.mean(loc_score * sharp_score)
 
                 m1_loss = F.l1_loss(m1_hat, m)
                 m2_loss = F.l1_loss(m2_hat, m)
@@ -86,33 +92,40 @@ class TacoTrainer:
                     self.generate_plots(model, session)
 
                 self.writer.add_scalar('Loss/train', loss, model.get_step())
+                self.writer.add_scalar('Attention_Score/train', att_score, model.get_step())
                 self.writer.add_scalar('Params/reduction_factor', session.r, model.get_step())
                 self.writer.add_scalar('Params/batch_size', session.bs, model.get_step())
                 self.writer.add_scalar('Params/learning_rate', session.lr, model.get_step())
 
                 stream(msg)
 
-            val_loss = self.evaluate(model, session.val_set)
+            val_loss, val_att_score = self.evaluate(model, session.val_set)
             self.writer.add_scalar('Loss/val', val_loss, model.get_step())
+            self.writer.add_scalar('AttentionScore/val', val_att_score, model.get_step())
             save_checkpoint('tts', self.paths, model, optimizer, is_silent=True)
 
             loss_avg.reset()
             duration_avg.reset()
             print(' ')
 
-    def evaluate(self, model: Tacotron, val_set: Dataset) -> float:
+    def evaluate(self, model: Tacotron, val_set: Dataset) -> Tuple[float, float]:
         model.eval()
         val_loss = 0
+        att_score_sum = 0
         device = next(model.parameters()).device
-        for i, (s_id, semb, x, m, ids, x_lens, m_lens) in enumerate(val_set, 1):
-            x, semb, m, s_id = x.to(device), semb.to(device), m.to(device), s_id.to(device)
+        for i, (s_id, semb, x, m, ids, x_lens, mel_lens) in enumerate(val_set, 1):
+            x, semb, m, s_id, x_lens, mel_lens = x.to(device), semb.to(device), m.to(device), s_id.to(device), x_lens.to(device), mel_lens.to(device)
 
             with torch.no_grad():
                 m1_hat, m2_hat, attention = model(x, m, semb)
                 m1_loss = F.l1_loss(m1_hat, m)
                 m2_loss = F.l1_loss(m2_hat, m)
                 val_loss += m1_loss.item() + m2_loss.item()
-        return val_loss / len(val_set)
+            loc_score, sharp_score = attention_score(attention, mel_lens, r=model.r)
+            att_score = torch.mean(loc_score * sharp_score)
+            att_score_sum += att_score
+
+        return val_loss / len(val_set), att_score_sum / len(val_set)
 
     @ignore_exception
     def generate_plots(self, model: Tacotron, session: TTSSession) -> None:
