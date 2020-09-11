@@ -8,11 +8,12 @@ from torch.utils.data.dataloader import DataLoader
 from models.tacotron import Tacotron
 from trainer.taco_trainer import TacoTrainer
 from utils import hparams as hp
+from utils.attention_score import attention_score
 from utils.checkpoints import restore_checkpoint
 from utils.dataset import get_tts_datasets
 from utils.display import *
 from utils.dsp import np_now
-from utils.files import unpickle_binary
+from utils.files import unpickle_binary, pickle_binary
 from utils.paths import Paths
 from utils.text import phonemes
 
@@ -48,6 +49,7 @@ def create_align_features(model: Tacotron,
     device = next(model.parameters()).device  # use same device as model parameters
     iters = len(val_set) + len(train_set)
     dataset = itertools.chain(train_set, val_set)
+    att_score_dict = {}
     for i, (s_id, semb, x, mels, ids, x_lens, mel_lens) in enumerate(dataset, 1):
         x, mels, semb = x.to(device), mels.to(device), semb.to(device)
         with torch.no_grad():
@@ -58,9 +60,6 @@ def create_align_features(model: Tacotron,
         mel_counts = np.zeros(shape=(bs, chars), dtype=np.int32)
         for b in range(attn.shape[0]):
             # fix random jumps in attention
-            fig = plot_attention(attn[b, :])
-            plt.savefig(f'/tmp/att/{ids[b]}.png')
-            plt.close(fig)
 
             for j in range(1, argmax.shape[1]):
                 if abs(argmax[b, j] - argmax[b, j-1]) > 10:
@@ -68,12 +67,20 @@ def create_align_features(model: Tacotron,
             count = np.bincount(argmax[b, :mel_lens[b]])
             mel_counts[b, :len(count)] = count[:len(count)]
 
+            loc_score, sharp_score = attention_score(torch.tensor(attn), mel_lens, r=model.r)
+            print(f'loc score {loc_score}, sharp score {sharp_score}')
+            fig = plot_attention(attn[b, :])
+            plt.savefig(f'/tmp/att/{ids[b]}_loc_{float(loc_score)}_sharp_{float(sharp_score)}.png')
+            plt.close(fig)
+            att_score_dict[ids[b]] = float(loc_score)
+
         for j, item_id in enumerate(ids):
             print(mel_counts[j, :])
             np.save(str(save_path / f'{item_id}.npy'), mel_counts[j, :], allow_pickle=False)
         bar = progbar(i, iters)
         msg = f'{bar} {i}/{iters} Batches '
         stream(msg)
+        pickle_binary(att_score_dict, paths.data / 'att_score_dict.pkl')
 
 
 if __name__ == '__main__':
