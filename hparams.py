@@ -7,8 +7,8 @@ data_path = 'data/'
 
 # model ids are separate - that way you can use a new tts with an old wavernn and vice versa
 # NB: expect undefined behaviour if models were trained on different DSP settings
-voc_model_id = 'resemblyzer_vctk_trim_raw'
-tts_model_id = 'resemblyzer_vctk_trim_tts'
+voc_model_id = 'resemblyzer_libritts_trim_raw'
+tts_model_id = 'resemblyzer_libritts_trim_tts'
 
 # set this to True if you are only interested in WaveRNN
 ignore_tts = False
@@ -40,7 +40,7 @@ vad_sample_rate = 16000
 seed = 42
 n_val = 500                         # num validatino samples
 min_speaker_count = 2 # min count of samples per speaker
-val_speaker_ids = ['p226', 'p227', 'p228', 'p229'] # use these speakers for generating plots
+val_speaker_ids = ['4446', '1580', '6829', '1089'] # use these speakers for generating plots
 
 # WAVERNN / VOCODER ------------------------------------------------------------------------------------------------#
 
