@@ -72,7 +72,7 @@ def create_align_features(model: Tacotron,
             fig = plot_attention(attn[b, :])
             plt.savefig(f'/tmp/att/{ids[b]}_loc_{float(loc_score)}_sharp_{float(sharp_score)}.png')
             plt.close(fig)
-            att_score_dict[ids[b]] = float(loc_score)
+            att_score_dict[ids[b]] = (float(loc_score), float(sharp_score))
 
         for j, item_id in enumerate(ids):
             print(mel_counts[j, :])
