@@ -2,7 +2,7 @@
 import re
 from utils import hparams as hp
 from utils.text import cleaners
-from utils.text.cleaners import to_phonemes
+from utils.text.cleaners import to_phonemes, basic_cleaners, english_cleaners
 from utils.text.symbols import phonemes
 
 # Mappings from symbol to numeric ID and vice versa:
@@ -56,6 +56,17 @@ def sequence_to_text(sequence):
 
 def clean_text(text):
     cleaner = getattr(cleaners, hp.tts_cleaner_name)
+    text = cleaner(text)
+    return text
+
+
+def clean_text_en(text):
+    cleaner = english_cleaners
+    text = cleaner(text)
+    return text
+
+def clean_text_de(text):
+    cleaner = basic_cleaners
     text = cleaner(text)
     return text
 
