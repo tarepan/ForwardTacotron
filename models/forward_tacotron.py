@@ -132,6 +132,7 @@ class ForwardTacotron(nn.Module):
         dur_hat = dur_hat.squeeze()
 
         x = x.transpose(1, 2)
+
         x = self.prenet(x)
         x = self.lr(x, dur)
         x, _ = self.lstm(x)

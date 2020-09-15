@@ -55,10 +55,11 @@ class BatchNormConv(nn.Module):
 class CBHG(nn.Module):
     def __init__(self, K, in_channels, channels, proj_channels, num_highways):
         super().__init__()
-        self.rnn = nn.GRU(channels, channels, batch_first=True, bidirectional=True)
+        self.rnn = nn.GRU(in_channels, channels, batch_first=True, bidirectional=True)
 
     def forward(self, x):
         # And then the RNN
+        x = x.transpose(1, 2)
         x, _ = self.rnn(x)
         #x = x.transpose(1, 2)
         return x
