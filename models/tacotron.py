@@ -58,9 +58,9 @@ class CBHG(nn.Module):
         self.rnn = nn.GRU(channels, channels, batch_first=True, bidirectional=True)
 
     def forward(self, x):
-        x = x.transpose(1, 2)
         # And then the RNN
         x, _ = self.rnn(x)
+        x = x.transpose(1, 2)
         return x
 
 
