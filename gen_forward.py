@@ -111,6 +111,7 @@ if __name__ == '__main__':
                                 dropout=hp.forward_dropout,
                                 n_mels=hp.num_mels).to(device)
 
+    print(f'tts step {tts_model.get_step()}')
     tts_load_path = tts_weights if tts_weights else paths.forward_latest_weights
     tts_model.load(tts_load_path)
 

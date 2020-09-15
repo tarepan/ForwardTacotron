@@ -69,14 +69,12 @@ class BatchNormConv(nn.Module):
     def __init__(self, in_channels, out_channels, kernel, activation=None):
         super().__init__()
         self.conv = nn.Conv1d(in_channels, out_channels, kernel, stride=1, padding=kernel // 2, bias=False)
-        self.bnorm = nn.BatchNorm1d(out_channels)
         self.activation = activation
 
     def forward(self, x):
         x = self.conv(x)
         if self.activation:
             x = self.activation(x)
-        x = self.bnorm(x)
         return x
 
 
@@ -158,7 +156,6 @@ class ForwardTacotron(nn.Module):
         x = self.embedding(x)
         dur = self.dur_pred(x, alpha=alpha)
         dur = dur.squeeze(2)
-
         x = x.transpose(1, 2)
         x = self.prenet(x)
         x = self.lr(x, dur)

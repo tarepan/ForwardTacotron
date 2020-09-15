@@ -130,7 +130,6 @@ class ForwardTacotronJIT(nn.Module):
         x = self.embedding(x)
         dur = self.dur_pred(x)
         dur = dur.squeeze(2)
-
         x = x.transpose(1, 2)
         x = self.prenet(x)
         x = self.lr(x, dur)

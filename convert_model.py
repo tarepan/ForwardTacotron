@@ -115,6 +115,7 @@ if __name__ == '__main__':
     tts_load_path = tts_weights if tts_weights else paths.forward_latest_weights
     tts_model.load(tts_load_path)
     tts_model.eval()
+    print(f'tts step {tts_model.get_step()}')
 
     text = clean_text(input_text.strip())
     inputs = [text_to_sequence(text)]
@@ -130,5 +131,5 @@ if __name__ == '__main__':
     save_wav(wav, '/tmp/sample_new_2.wav')
 
     traced_script_module = torch.jit.script(tts_model, x)
-    traced_script_module.save("/tmp/forward_jit_5.pt")
+    traced_script_module.save("/tmp/forward_jit_simple.pt")
 
