@@ -55,59 +55,10 @@ class BatchNormConv(nn.Module):
 class CBHG(nn.Module):
     def __init__(self, K, in_channels, channels, proj_channels, num_highways):
         super().__init__()
-
-        self.bank_kernels = [i for i in range(1, K + 1)]
-        self.conv1d_bank = nn.ModuleList()
-        for k in self.bank_kernels:
-            conv = BatchNormConv(in_channels, channels, k)
-            self.conv1d_bank.append(conv)
-
-        self.maxpool = nn.MaxPool1d(kernel_size=2, stride=1, padding=1)
-
-        self.conv_project1 = BatchNormConv(len(self.bank_kernels) * channels, proj_channels[0], 3)
-        self.conv_project2 = BatchNormConv(proj_channels[0], proj_channels[1], 3, relu=False)
-
-        # Fix the highway input if necessary
-
-        self.pre_highway = nn.Linear(proj_channels[-1], channels, bias=False)
-        self.highways = nn.ModuleList()
-        for i in range(num_highways):
-            hn = HighwayNetwork(channels)
-            self.highways.append(hn)
-
         self.rnn = nn.GRU(channels, channels, batch_first=True, bidirectional=True)
 
-
     def forward(self, x):
-
-        # Save these for later
-        residual = x
-        seq_len = x.size(-1)
-        conv_bank = []
-
-        # Convolution Bank
-        for conv in self.conv1d_bank:
-            c = conv(x) # Convolution
-            conv_bank.append(c[:, :, :seq_len])
-
-        # Stack along the channel axis
-        conv_bank = torch.cat(conv_bank, dim=1)
-
-        # dump the last padding to fit residual
-        x = self.maxpool(conv_bank)[:, :, :seq_len]
-
-        # Conv1d projections
-        x = self.conv_project1(x)
-        x = self.conv_project2(x)
-
-        # Residual Connect
-        x = x + residual
-
-        # Through the highways
         x = x.transpose(1, 2)
-        x = self.pre_highway(x)
-        for h in self.highways: x = h(x)
-
         # And then the RNN
         x, _ = self.rnn(x)
         return x
