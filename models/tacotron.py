@@ -60,7 +60,7 @@ class CBHG(nn.Module):
     def forward(self, x):
         # And then the RNN
         x, _ = self.rnn(x)
-        x = x.transpose(1, 2)
+        #x = x.transpose(1, 2)
         return x
 
 
