@@ -6,6 +6,7 @@ from resemblyzer import VoiceEncoder, preprocess_wav
 from models.fatchord_version import WaveRNN
 from models.forward_tacotron import ForwardTacotron
 from utils import hparams as hp
+from utils.files import unpickle_binary
 from utils.text.symbols import phonemes
 from utils.paths import Paths
 import argparse
@@ -113,7 +114,8 @@ if __name__ == '__main__':
                                 highways=hp.forward_num_highways,
                                 dropout=hp.forward_dropout,
                                 n_mels=hp.num_mels,
-                                speaker_emb_dim=hp.forward_speaker_emb_dim).to(device)
+                                speaker_emb_dim=hp.forward_speaker_emb_dim,
+                                max_num_speakers=hp.max_num_speakers).to(device)
 
     tts_load_path = tts_weights if tts_weights else paths.forward_latest_weights
     tts_model.load(tts_load_path)
@@ -150,21 +152,23 @@ if __name__ == '__main__':
     # get speaker embedding
     voice_encoder = VoiceEncoder()
 
+    speaker_token_dict = unpickle_binary('data/speaker_token_dict.pkl')
+
     for person in range(225, 235):
 
-        enc_path = '/Users/cschaefe/datasets/VCTK-Corpus/wav48/p' + str(person)
+        #enc_path = '/Users/cschaefe/datasets/VCTK-Corpus/wav48/p' + str(person)
         #enc_path = '/Users/cschaefe/Downloads/merkel'
-        enc_path = Path(enc_path)
-        sample_files = list(enc_path.glob('**/*.wav'))[:1]
+        #enc_path = Path(enc_path)
+        #sample_files = list(enc_path.glob('**/*.wav'))[:1]
         #sample_files = list(Path('/Users/cschaefe/datasets/audio_data/Cutted_merged').glob('**/*.wav'))[:10]
         #sample_files = list(Path('/Users/cschaefe/datasets/LJSpeech/LJSpeech-1.1/wavs').glob('**/*.wav'))[:10]
-        sample_wavs = [preprocess_wav(w) for w in sample_files]
-        semb = voice_encoder.embed_speaker(sample_wavs)
-
+        #sample_wavs = [preprocess_wav(w) for w in sample_files]
+        #semb = voice_encoder.embed_speaker(sample_wavs)
+        s_id = speaker_token_dict['p' + str(person)]
         for i, x in enumerate(inputs, 1):
 
             print(f'\n| Generating {i}/{len(inputs)}')
-            _, m, _ = tts_model.generate(x, semb, alpha=args.alpha)
+            _, m, _ = tts_model.generate(x, s_id, alpha=args.alpha)
 
             if args.vocoder == 'griffinlim':
                 v_type = args.vocoder
@@ -176,7 +180,7 @@ if __name__ == '__main__':
             if input_text:
                 save_path = paths.forward_output/f'{input_text[:10]}_{args.alpha}_{v_type}_{tts_k}k.wav'
             else:
-                save_path = paths.forward_output/f'{i}_{v_type}_{tts_k}_{enc_path.stem}.wav'
+                save_path = paths.forward_output/f'{i}_{v_type}_{tts_k}_{person}.wav'
 
             if args.vocoder == 'wavernn':
                 m = torch.tensor(m).unsqueeze(0)
