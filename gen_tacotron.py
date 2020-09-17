@@ -141,7 +141,7 @@ if __name__ == '__main__':
     for i, x in enumerate(inputs, 1):
 
         print(f'\n| Generating {i}/{len(inputs)}')
-        _, m, attention = tts_model.generate(x)
+        _, m, attention, style_attn_scores = tts_model.generate(x)
 
         if args.vocoder == 'griffinlim':
             v_type = args.vocoder

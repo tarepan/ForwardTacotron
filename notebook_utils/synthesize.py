@@ -60,7 +60,7 @@ def get_melgan_model():
 def synthesize(input_text, tts_model, voc_model, alpha=1.0):
     text = clean_text(input_text.strip())
     x = text_to_sequence(text)
-    _, m, _ = tts_model.generate(x, alpha=alpha)
+    _, m, _ , _= tts_model.generate(x, alpha=alpha)
     if voc_model == 'griffinlim':
         wav = reconstruct_waveform(m, n_iter=32)
     elif isinstance(voc_model, WaveRNN):

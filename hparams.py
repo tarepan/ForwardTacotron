@@ -2,13 +2,17 @@
 # CONFIG -----------------------------------------------------------------------------------------------------------#
 
 # Here are the input and output data paths (Note: you can override wav_path in preprocess.py)
-wav_path = '/path/to/wav_files/'
-data_path = 'data/'
+# wav_path = '/Volumes/data/datasets/LJSpeech-1.1/'
+wav_path = '/home/sysgen/datasets_unprocessed/LJSpeech-1.1/'
+
+# wav_path = '/path/to/wav_files/'
+# data_path = '/Volumes/data/datasets/LJSpeech-1.1/forward_taco_data/'
+data_path = '/home/sysgen/datasets_unprocessed/LJSpeech-1.1/forward_taco_data/'
 
 # model ids are separate - that way you can use a new tts with an old wavernn and vice versa
 # NB: expect undefined behaviour if models were trained on different DSP settings
 voc_model_id = 'ljspeech_raw'
-tts_model_id = 'ljspeech_tts'
+tts_model_id = 'ljspeech_tts_cosine'
 
 # set this to True if you are only interested in WaveRNN
 ignore_tts = False
@@ -85,18 +89,28 @@ tts_stop_threshold = -11           # Value below which audio generation ends.
                                     # For example, for a range of [-4, 4], this
                                     # will terminate the sequence at the first
                                     # frame that has all values < -3.4
+                                    
+# reference encoder
+ref_enc_filters = [32, 32, 64, 64, 128, 128]
+ref_enc_size = [3, 3]
+ref_enc_strides = [2, 2]
+ref_enc_pad = [1, 1]
+ref_enc_gru_size = tts_embed_dims // 2
+# style token layer
+token_num = 10
+num_heads = 8
 
 # Training
 
 tts_schedule = [(10,  1e-3,  10_000,  32),   # progressive training schedule
                 (5,  1e-4, 20_000,  16),   # (r, lr, step, batch_size)
                 (2,  1e-4, 30_000,  8),
-                (1,  1e-4, 50_000,  8)]
+                (1,  1e-4, 80_000,  8)]
 
 tts_max_mel_len = 1250              # if you have a couple of extremely long spectrograms you might want to use this
 tts_clip_grad_norm = 1.0            # clips the gradient norm to prevent explosion - set to None if not needed
 tts_checkpoint_every = 10_000        # checkpoints the model every X steps
-tts_plot_every = 1000
+tts_plot_every = 500
 
 # ------------------------------------------------------------------------------------------------------------------#
 

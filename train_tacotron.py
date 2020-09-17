@@ -27,7 +27,7 @@ def create_gta_features(model: Tacotron,
     for i, (x, mels, ids, mel_lens) in enumerate(dataset, 1):
         x, mels = x.to(device), mels.to(device)
         with torch.no_grad():
-            _, gta, _ = model(x, mels)
+            _, gta, _, _ = model(x, mels)
         gta = gta.cpu().numpy()
         for j, item_id in enumerate(ids):
             mel = gta[j][:, :mel_lens[j]]
@@ -50,7 +50,7 @@ def create_align_features(model: Tacotron,
     for i, (x, mels, ids, mel_lens) in enumerate(dataset, 1):
         x, mels = x.to(device), mels.to(device)
         with torch.no_grad():
-            _, _, attn = model(x, mels)
+            _, _, attn, _ = model(x, mels)
         attn = np_now(attn)
         bs, chars = attn.shape[0], attn.shape[2]
         argmax = np.argmax(attn[:, :, :], axis=2)

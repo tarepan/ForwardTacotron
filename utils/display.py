@@ -133,3 +133,10 @@ def plot_spec(M):
     plt.show()
     mpl.interactive(False)
 
+def simple_plot(img, figsize=(6,6)):
+    fig = plt.figure(figsize=figsize)
+    plt.imshow(img, interpolation='nearest', aspect='auto')
+    plt.colorbar()
+    plt.close()
+    return fig
+

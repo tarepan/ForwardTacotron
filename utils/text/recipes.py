@@ -6,7 +6,7 @@ from typing import Union
 def ljspeech(path: Union[str, Path]):
     csv_file = get_files(path, extension='.csv')
 
-    assert len(csv_file) == 1
+    assert len(csv_file) == 1, csv_file
 
     text_dict = {}
 
