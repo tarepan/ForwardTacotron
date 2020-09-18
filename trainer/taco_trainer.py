@@ -126,6 +126,39 @@ class TacoTrainer:
         token_similarity_fig = simple_plot(np_now(sim_matrix))
         self.writer.add_figure(f'StyleTokenSimilarity', token_similarity_fig, model.step)
         
+        x, m, ids, lens = session.val_sample
+        x, m = x.to(device), m.to(device)
+        m1_hat, m2_hat, att, style_attn_scores = model(x, m, m)
+        att = np_now(att)[0]
+        m1_hat = np_now(m1_hat)[0, :600, :]
+        m2_hat = np_now(m2_hat)[0, :600, :]
+        m = np_now(m)[0, :600, :]
+
+        att_fig = plot_attention(att)
+        style_attn_scores = style_attn_scores[:, 0, :, :]  # ([N_heads, 1, N_tokens])
+        all_heads = torch.stack([t for t in style_attn_scores], dim=1)  # ([N_heads, N_tokens])
+        all_heads = np_now(all_heads)
+        style_attn_fig = plot_attention(all_heads)
+        m1_hat_fig = plot_mel(m1_hat)
+        m2_hat_fig = plot_mel(m2_hat)
+        m_fig = plot_mel(m)
+
+        self.writer.add_figure(f'Ground_Truth_Aligned_NoStyle/attention_{j}', att_fig, model.step)
+        self.writer.add_figure(f'Ground_Truth_Aligned_NoStyle/style_attention_{j}', style_attn_fig, model.step)
+        self.writer.add_figure('Ground_Truth_Aligned_NoStyle/target', m_fig, model.step)
+        self.writer.add_figure(f'Ground_Truth_Aligned_NoStyle/linear_{j}', m1_hat_fig, model.step)
+        self.writer.add_figure(f'Ground_Truth_Aligned_NoStyle/postnet_{j}', m2_hat_fig, model.step)
+
+        m2_hat_wav = reconstruct_waveform(m2_hat)
+        target_wav = reconstruct_waveform(m)
+
+        self.writer.add_audio(
+            tag='Ground_Truth_Aligned_NoStyle/target_wav', snd_tensor=target_wav,
+            global_step=model.step, sample_rate=hp.sample_rate)
+        self.writer.add_audio(
+            tag=f'Ground_Truth_Aligned_NoStyle/postnet_wav_{j}', snd_tensor=m2_hat_wav,
+            global_step=model.step, sample_rate=hp.sample_rate)
+
         generate_text = ['United Airlines five six three from Los Angeles to New Orleans has Landed.',
                          'Is that Utah travel agency?']
         generate_text = [text_to_sequence(clean_text(t)) for t in generate_text]
@@ -139,7 +172,6 @@ class TacoTrainer:
             ref_mel = torch.from_numpy(ref_mel).to(device)
             batch_size = x.size(0)
             ref_mel_batch = ref_mel.repeat(batch_size, 1, 1)
-            
             m1_hat, m2_hat, att, style_attn_scores = model(x, m, ref_mel_batch)
             att = np_now(att)[0]
             m1_hat = np_now(m1_hat)[0, :600, :]

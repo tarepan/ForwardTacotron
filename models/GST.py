@@ -145,7 +145,7 @@ class MultiHeadAttention(nn.Module):
         scores = torch.cosine_similarity(querys, keys, dim=-1)[:,:, None, :] # ([8, 32, 1, 10])
         # scores = torch.matmul(querys, keys.transpose(2, 3))  # [h, N, T_q, T_k] [8, 32, 1, 10])
         # scores = scores / (self.key_dim ** 0.5)
-        # scores = F.softmax(scores, dim=3)
+        scores = F.softmax(scores, dim=3)
 
         # out = score * V
         out = torch.matmul(scores, values)  # [h, N, T_q, num_units/h]
