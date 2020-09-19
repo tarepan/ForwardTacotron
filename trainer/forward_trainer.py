@@ -61,18 +61,11 @@ class ForwardTrainer:
                 x, m, dur, lens = x.to(device), m.to(device), dur.to(device), lens.to(device)
 
                 m1_hat, m2_hat, dur_hat = model.forward(x, m, dur)
-                m1_hat_2, m2_hat_2, dur_hat_2 = model.forward_2(x, m, dur)
 
                 m1_loss = self.l1_loss(m1_hat, m, lens)
                 m2_loss = self.l1_loss(m2_hat, m, lens)
                 dur_loss = F.l1_loss(dur_hat, dur)
-                m1_loss_2 = self.l1_loss(m1_hat_2, m, lens)
-                m2_loss_2 = self.l1_loss(m2_hat_2, m, lens)
-                dur_loss_2 = F.l1_loss(dur_hat_2, dur)
-
                 loss = m1_loss + m2_loss + dur_loss
-                loss_2 = m1_loss_2 + m2_loss_2 + dur_loss_2
-                loss = loss + loss_2
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -97,7 +90,6 @@ class ForwardTrainer:
                     self.generate_plots(model, session)
 
                 self.writer.add_scalar('Mel_Loss/train', m1_loss + m2_loss, model.get_step())
-                self.writer.add_scalar('Mel_Loss/train_auto', m1_loss_2 + m2_loss_2, model.get_step())
                 self.writer.add_scalar('Duration_Loss/train', dur_loss, model.get_step())
                 self.writer.add_scalar('Params/batch_size', session.bs, model.get_step())
                 self.writer.add_scalar('Params/learning_rate', session.lr, model.get_step())
