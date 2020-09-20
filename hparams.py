@@ -113,7 +113,7 @@ forward_durpred_rnn_dims = 64
 forward_durpred_dropout = 0.5
 forward_prenet_K = 16
 forward_postnet_K = 8
-forward_rnn_dims = 512
+forward_rnn_dims = 1024
 forward_num_highways = 4
 forward_dropout = 0.1
 
