@@ -93,6 +93,7 @@ class STL(nn.Module):
         super().__init__()
         # self.embed = nn.Parameter(torch.FloatTensor(hp.token_num, hp.E // hp.num_heads))
         self.embed = nn.Parameter(torch.rand(hp.token_num, hp.tts_embed_dims // hp.num_heads))
+        # self.embed = (torch.ones(1,hp.tts_embed_dims // hp.num_heads).transpose(0,1)*torch.arange(1,hp.token_num+1)).transpose(0,1)
         d_q = hp.tts_embed_dims // 2
         d_k = hp.tts_embed_dims // hp.num_heads
         # self.attention = MultiHeadAttention(hp.num_heads, d_model, d_q, d_v)
@@ -135,6 +136,7 @@ class MultiHeadAttention(nn.Module):
         querys = self.W_query(query)  # [N, T_q, num_units]
         keys = self.W_key(key)  # [N, T_k, num_units]
         values = self.W_value(key)
+        # TODO: decide whether to pass keys (style tokens) to dense or not when selecting
 
         split_size = self.num_units // self.num_heads
         querys = torch.stack(torch.split(querys, split_size, dim=2), dim=0)  # [h, N, T_q, num_units/h]
@@ -145,7 +147,7 @@ class MultiHeadAttention(nn.Module):
         scores = torch.cosine_similarity(querys, keys, dim=-1)[:,:, None, :] # ([8, 32, 1, 10])
         # scores = torch.matmul(querys, keys.transpose(2, 3))  # [h, N, T_q, T_k] [8, 32, 1, 10])
         # scores = scores / (self.key_dim ** 0.5)
-        scores = F.softmax(scores, dim=3)
+        scores = F.softmax(scores, dim=3) # [h, N, 1, T_k]
 
         # out = score * V
         out = torch.matmul(scores, values)  # [h, N, T_q, num_units/h]
@@ -187,3 +189,15 @@ class AttentionRNN(nn.Module):
         attn_weights = F.softmax(attn_weights, 2)
 
         return attn_weights, outputs, hidden
+    
+if __name__ == '__main__':
+    # import numpy as np
+    stl = STL()
+    ref_e = ReferenceEncoder()
+    gst = GST()
+    rand_inp = torch.rand(2,80,73)
+    out = gst(rand_inp)
+    scalars = torch.tensor([1., 0., 0., 0, 0, 0, 0, 0, 0, 0])
+    scalars = scalars.repeat(8, 2, 1, 1)
+    # new_out = torch.matmul(scalars, values) # values from mhattention
+    # new_out = torch.cat(torch.split(new_out, 1, dim=0), dim=3).squeeze(0)

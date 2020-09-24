@@ -217,7 +217,7 @@ class Decoder(nn.Module):
         self.n_mels = n_mels
         self.prenet = PreNet(n_mels)
         self.attn_net = LSA(decoder_dims)
-        self.attn_rnn = nn.GRUCell(decoder_dims + decoder_dims // 2, decoder_dims)
+        self.attn_rnn = nn.GRUCell(decoder_dims + 128, decoder_dims)
         self.rnn_input = nn.Linear(2 * decoder_dims, lstm_dims)
         self.res_rnn1 = nn.LSTMCell(lstm_dims, lstm_dims)
         self.res_rnn2 = nn.LSTMCell(lstm_dims, lstm_dims)
@@ -295,9 +295,9 @@ class Tacotron(nn.Module):
                                num_highways=num_highways,
                                dropout=dropout)
         self.gst = GST()
-        self.encoder_proj = nn.Linear(decoder_dims, decoder_dims, bias=False)
+        self.encoder_proj = nn.Linear(self.decoder_dims, self.decoder_dims, bias=False)
         self.decoder = Decoder(n_mels=n_mels,
-                               decoder_dims=decoder_dims,
+                               decoder_dims=self.decoder_dims,
                                lstm_dims=lstm_dims)
         self.postnet = CBHG(K=postnet_K,
                             in_channels=n_mels,

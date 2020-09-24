@@ -143,11 +143,11 @@ class TacoTrainer:
         m2_hat_fig = plot_mel(m2_hat)
         m_fig = plot_mel(m)
 
-        self.writer.add_figure(f'Ground_Truth_Aligned_NoStyle/attention_{j}', att_fig, model.step)
-        self.writer.add_figure(f'Ground_Truth_Aligned_NoStyle/style_attention_{j}', style_attn_fig, model.step)
+        self.writer.add_figure(f'Ground_Truth_Aligned_NoStyle/attention', att_fig, model.step)
+        self.writer.add_figure(f'Ground_Truth_Aligned_NoStyle/style_attention', style_attn_fig, model.step)
         self.writer.add_figure('Ground_Truth_Aligned_NoStyle/target', m_fig, model.step)
-        self.writer.add_figure(f'Ground_Truth_Aligned_NoStyle/linear_{j}', m1_hat_fig, model.step)
-        self.writer.add_figure(f'Ground_Truth_Aligned_NoStyle/postnet_{j}', m2_hat_fig, model.step)
+        self.writer.add_figure(f'Ground_Truth_Aligned_NoStyle/linear', m1_hat_fig, model.step)
+        self.writer.add_figure(f'Ground_Truth_Aligned_NoStyle/postnet', m2_hat_fig, model.step)
 
         m2_hat_wav = reconstruct_waveform(m2_hat)
         target_wav = reconstruct_waveform(m)
@@ -156,7 +156,7 @@ class TacoTrainer:
             tag='Ground_Truth_Aligned_NoStyle/target_wav', snd_tensor=target_wav,
             global_step=model.step, sample_rate=hp.sample_rate)
         self.writer.add_audio(
-            tag=f'Ground_Truth_Aligned_NoStyle/postnet_wav_{j}', snd_tensor=m2_hat_wav,
+            tag=f'Ground_Truth_Aligned_NoStyle/postnet_wav', snd_tensor=m2_hat_wav,
             global_step=model.step, sample_rate=hp.sample_rate)
 
         generate_text = ['United Airlines five six three from Los Angeles to New Orleans has Landed.',
