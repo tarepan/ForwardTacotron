@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 from models.GST import GST
 
 
@@ -217,7 +218,11 @@ class Decoder(nn.Module):
         self.n_mels = n_mels
         self.prenet = PreNet(n_mels)
         self.attn_net = LSA(decoder_dims)
-        self.attn_rnn = nn.GRUCell(decoder_dims + 128, decoder_dims)
+        # self.attn_rnn = nn.GRUCell(decoder_dims + 128, decoder_dims)
+        # self.attn_rnn = nn.LSTMCell(decoder_dims + 128, decoder_dims)
+        self.attn_rnn1 = nn.LSTMCell(decoder_dims + 128, decoder_dims+128)
+        # self.attn_rnn1 = nn.LSTMCell(decoder_dims + 128, decoder_dims)
+        self.attn_rnn2 = nn.LSTMCell(decoder_dims+128, decoder_dims)
         self.rnn_input = nn.Linear(2 * decoder_dims, lstm_dims)
         self.res_rnn1 = nn.LSTMCell(lstm_dims, lstm_dims)
         self.res_rnn2 = nn.LSTMCell(lstm_dims, lstm_dims)
@@ -235,25 +240,37 @@ class Decoder(nn.Module):
         batch_size = encoder_seq.size(0)
         
         # Unpack the hidden and cell states
-        attn_hidden, rnn1_hidden, rnn2_hidden = hidden_states
-        rnn1_cell, rnn2_cell = cell_states
+        attn1_hidden, attn2_hidden, rnn1_hidden, rnn2_hidden = hidden_states
+        attn1_cell, attn2_cell, rnn1_cell, rnn2_cell = cell_states
         
         # PreNet for the Attention RNN
         prenet_out = self.prenet(prenet_in)
         
         # Compute the Attention RNN hidden state
         attn_rnn_in = torch.cat([context_vec, prenet_out], dim=-1)
-        attn_hidden = self.attn_rnn(attn_rnn_in.squeeze(1), attn_hidden)
+        # attn_hidden = self.attn_rnn(attn_rnn_in.squeeze(1), attn_hidden)
+        attn1_hidden_next, attn1_cell = self.attn_rnn1(attn_rnn_in.squeeze(1), (attn1_hidden, attn1_cell))
+        if self.training:
+            attn1_hidden = self.zoneout(attn1_hidden, attn1_hidden_next)
+        else:
+            attn1_hidden = attn1_hidden_next
+        attn_rnn_in = attn_rnn_in + attn1_hidden  # should this happen?
+        attn2_hidden_next, attn2_cell = self.attn_rnn2(attn_rnn_in, (attn2_hidden, attn2_cell))
+        # rnn2_hidden_next, rnn2_cell = self.res_rnn2(attn1_hidden, (attn2_hidden, attn2_cell))
+        if self.training:
+            attn2_hidden = self.zoneout(attn2_hidden, attn2_hidden_next)
+        else:
+            attn2_hidden = attn2_hidden_next
         
         # Compute the attention scores
-        scores = self.attn_net(encoder_seq_proj, attn_hidden, t)
+        scores = self.attn_net(encoder_seq_proj, attn2_hidden, t)
         
         # Dot product to create the context vector
         context_vec = scores @ encoder_seq
         context_vec = context_vec.squeeze(1)
         
         # Concat Attention RNN output w. Context Vector & project
-        x = torch.cat([context_vec, attn_hidden], dim=1)
+        x = torch.cat([context_vec, attn2_hidden], dim=1)
         x = self.rnn_input(x)
         
         # Compute first Residual RNN
@@ -275,8 +292,14 @@ class Decoder(nn.Module):
         # Project Mels
         mels = self.mel_proj(x)
         mels = mels.view(batch_size, self.n_mels, self.max_r)[:, :, :self.r]
-        hidden_states = (attn_hidden, rnn1_hidden, rnn2_hidden)
-        cell_states = (rnn1_cell, rnn2_cell)
+        hidden_states = (attn1_hidden,
+                         attn2_hidden,
+                         rnn1_hidden,
+                         rnn2_hidden)
+        cell_states = (attn1_cell,
+                       attn2_cell,
+                       rnn1_cell,
+                       rnn2_cell)
         
         return mels, scores, hidden_states, cell_states, context_vec
 
@@ -329,15 +352,18 @@ class Tacotron(nn.Module):
         batch_size, _, steps = m.size()
         
         # Initialise all hidden states and pack into tuple
-        attn_hidden = torch.zeros(batch_size, self.decoder_dims, device=device)
+        attn1_hidden = torch.zeros(batch_size, self.decoder_dims+128, device=device)
+        attn2_hidden = torch.zeros(batch_size, self.decoder_dims, device=device)
         rnn1_hidden = torch.zeros(batch_size, self.lstm_dims, device=device)
         rnn2_hidden = torch.zeros(batch_size, self.lstm_dims, device=device)
-        hidden_states = (attn_hidden, rnn1_hidden, rnn2_hidden)
+        hidden_states = (attn1_hidden, attn2_hidden, rnn1_hidden, rnn2_hidden)
         
         # Initialise all lstm cell states and pack into tuple
+        attn1_cell = torch.zeros(batch_size, self.decoder_dims+128, device=device)
+        attn2_cell = torch.zeros(batch_size, self.decoder_dims, device=device)
         rnn1_cell = torch.zeros(batch_size, self.lstm_dims, device=device)
         rnn2_cell = torch.zeros(batch_size, self.lstm_dims, device=device)
-        cell_states = (rnn1_cell, rnn2_cell)
+        cell_states = (attn1_cell, attn2_cell, rnn1_cell, rnn2_cell)
         
         # <GO> Frame for start of decoder loop
         go_frame = torch.zeros(batch_size, self.n_mels, device=device)
@@ -378,31 +404,34 @@ class Tacotron(nn.Module):
         # attn_scores = attn_scores.cpu().data.numpy()
         
         return mel_outputs, linear, attn_scores, style_attn_scores
-
+    
     def generate_with_scores(self, x, scalars, steps=2000):
         self.eval()
         device = next(self.parameters()).device  # use same device as parameters
-    
+        
         batch_size = 1
         x = torch.as_tensor(x, dtype=torch.long, device=device).unsqueeze(0)
-    
+        
         # Need to initialise all hidden states and pack into tuple for tidyness
-        attn_hidden = torch.zeros(batch_size, self.decoder_dims, device=device)
+        attn1_hidden = torch.zeros(batch_size, self.decoder_dims+128, device=device)
+        attn2_hidden = torch.zeros(batch_size, self.decoder_dims, device=device)
         rnn1_hidden = torch.zeros(batch_size, self.lstm_dims, device=device)
         rnn2_hidden = torch.zeros(batch_size, self.lstm_dims, device=device)
-        hidden_states = (attn_hidden, rnn1_hidden, rnn2_hidden)
-    
-        # Need to initialise all lstm cell states and pack into tuple for tidyness
+        hidden_states = (attn1_hidden, attn2_hidden, rnn1_hidden, rnn2_hidden)
+
+        # Initialise all lstm cell states and pack into tuple
+        attn1_cell = torch.zeros(batch_size, self.decoder_dims+128, device=device)
+        attn2_cell = torch.zeros(batch_size, self.decoder_dims, device=device)
         rnn1_cell = torch.zeros(batch_size, self.lstm_dims, device=device)
         rnn2_cell = torch.zeros(batch_size, self.lstm_dims, device=device)
-        cell_states = (rnn1_cell, rnn2_cell)
-    
+        cell_states = (attn1_cell, attn2_cell, rnn1_cell, rnn2_cell)
+        
         # Need a <GO> Frame for start of decoder loop
         go_frame = torch.zeros(batch_size, self.n_mels, device=device)
-    
+        
         # Need an initial context vector
         context_vec = torch.zeros(batch_size, self.decoder_dims, device=device)
-    
+        
         # Project the encoder outputs to avoid
         # unnecessary matmuls in the decoder loop
         encoder_seq = self.encoder(x)
@@ -411,10 +440,10 @@ class Tacotron(nn.Module):
         conditioned_encoder_seq = encoder_seq + style_embed
         encoder_seq_proj = self.encoder_proj(conditioned_encoder_seq)
         # encoder_seq_proj = self.encoder_proj(encoder_seq)
-    
+        
         # Need a couple of lists for outputs
         mel_outputs, attn_scores = [], []
-    
+        
         # Run the decoder loop
         for t in range(0, steps, self.r):
             prenet_in = mel_outputs[-1][:, :, -1] if t > 0 else go_frame
@@ -425,23 +454,23 @@ class Tacotron(nn.Module):
             attn_scores.append(scores)
             # Stop the loop if silent frames present
             if (mel_frames < self.stop_threshold).all() and t > 10: break
-    
+        
         # Concat the mel outputs into sequence
         mel_outputs = torch.cat(mel_outputs, dim=2)
-    
+        
         # Post-Process for Linear Spectrograms
         postnet_out = self.postnet(mel_outputs)
         linear = self.post_proj(postnet_out)
-    
+        
         linear = linear.transpose(1, 2)[0].cpu().data.numpy()
         mel_outputs = mel_outputs[0].cpu().data.numpy()
-    
+        
         # For easy visualisation
         attn_scores = torch.cat(attn_scores, 1)
         attn_scores = attn_scores.cpu().data.numpy()[0]
-    
+        
         self.train()
-    
+        
         return mel_outputs, linear, attn_scores, style_attn_scores
     
     def generate(self, x, ref_mel, steps=2000):
@@ -452,15 +481,18 @@ class Tacotron(nn.Module):
         x = torch.as_tensor(x, dtype=torch.long, device=device).unsqueeze(0)
         
         # Need to initialise all hidden states and pack into tuple for tidyness
-        attn_hidden = torch.zeros(batch_size, self.decoder_dims, device=device)
+        attn1_hidden = torch.zeros(batch_size, self.decoder_dims+128, device=device)
+        attn2_hidden = torch.zeros(batch_size, self.decoder_dims, device=device)
         rnn1_hidden = torch.zeros(batch_size, self.lstm_dims, device=device)
         rnn2_hidden = torch.zeros(batch_size, self.lstm_dims, device=device)
-        hidden_states = (attn_hidden, rnn1_hidden, rnn2_hidden)
-        
-        # Need to initialise all lstm cell states and pack into tuple for tidyness
+        hidden_states = (attn1_hidden, attn2_hidden, rnn1_hidden, rnn2_hidden)
+
+        # Initialise all lstm cell states and pack into tuple
+        attn1_cell = torch.zeros(batch_size, self.decoder_dims+128, device=device)
+        attn2_cell = torch.zeros(batch_size, self.decoder_dims, device=device)
         rnn1_cell = torch.zeros(batch_size, self.lstm_dims, device=device)
         rnn2_cell = torch.zeros(batch_size, self.lstm_dims, device=device)
-        cell_states = (rnn1_cell, rnn2_cell)
+        cell_states = (attn1_cell, attn2_cell, rnn1_cell, rnn2_cell)
         
         # Need a <GO> Frame for start of decoder loop
         go_frame = torch.zeros(batch_size, self.n_mels, device=device)

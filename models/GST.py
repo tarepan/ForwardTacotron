@@ -53,7 +53,7 @@ class ReferenceEncoder(nn.Module):
         self.gru = nn.GRU(input_size=hp.ref_enc_filters[-1] * out_channels,
                           hidden_size=hp.tts_embed_dims // 2,
                           batch_first=True)
-    
+        #
     def forward(self, inputs):
         N = inputs.size(0)
         out = inputs.view(N, 1, -1, hp.num_mels)  # [N, 1, Ty, n_mels]

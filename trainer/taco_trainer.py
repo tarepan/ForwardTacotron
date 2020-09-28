@@ -82,7 +82,7 @@ class TacoTrainer:
                                     name=ckpt_name, is_silent=True)
                 
                 if step % hp.tts_plot_every == 0:
-                    if step > hp.start_prediction_step:
+                    if step > hp.tts_start_prediction_step:
                         prediction=True
                     else:
                         prediction = False
