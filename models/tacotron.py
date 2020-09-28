@@ -378,6 +378,71 @@ class Tacotron(nn.Module):
         # attn_scores = attn_scores.cpu().data.numpy()
         
         return mel_outputs, linear, attn_scores, style_attn_scores
+
+    def generate_with_scores(self, x, scalars, steps=2000):
+        self.eval()
+        device = next(self.parameters()).device  # use same device as parameters
+    
+        batch_size = 1
+        x = torch.as_tensor(x, dtype=torch.long, device=device).unsqueeze(0)
+    
+        # Need to initialise all hidden states and pack into tuple for tidyness
+        attn_hidden = torch.zeros(batch_size, self.decoder_dims, device=device)
+        rnn1_hidden = torch.zeros(batch_size, self.lstm_dims, device=device)
+        rnn2_hidden = torch.zeros(batch_size, self.lstm_dims, device=device)
+        hidden_states = (attn_hidden, rnn1_hidden, rnn2_hidden)
+    
+        # Need to initialise all lstm cell states and pack into tuple for tidyness
+        rnn1_cell = torch.zeros(batch_size, self.lstm_dims, device=device)
+        rnn2_cell = torch.zeros(batch_size, self.lstm_dims, device=device)
+        cell_states = (rnn1_cell, rnn2_cell)
+    
+        # Need a <GO> Frame for start of decoder loop
+        go_frame = torch.zeros(batch_size, self.n_mels, device=device)
+    
+        # Need an initial context vector
+        context_vec = torch.zeros(batch_size, self.decoder_dims, device=device)
+    
+        # Project the encoder outputs to avoid
+        # unnecessary matmuls in the decoder loop
+        encoder_seq = self.encoder(x)
+        style_embed, style_attn_scores = self.gst.forward_with_scores(scalars=scalars, batch_size=1)  # [N, 256]
+        style_embed = style_embed.expand_as(encoder_seq)
+        conditioned_encoder_seq = encoder_seq + style_embed
+        encoder_seq_proj = self.encoder_proj(conditioned_encoder_seq)
+        # encoder_seq_proj = self.encoder_proj(encoder_seq)
+    
+        # Need a couple of lists for outputs
+        mel_outputs, attn_scores = [], []
+    
+        # Run the decoder loop
+        for t in range(0, steps, self.r):
+            prenet_in = mel_outputs[-1][:, :, -1] if t > 0 else go_frame
+            mel_frames, scores, hidden_states, cell_states, context_vec = \
+                self.decoder(encoder_seq, encoder_seq_proj, prenet_in,
+                             hidden_states, cell_states, context_vec, t)
+            mel_outputs.append(mel_frames)
+            attn_scores.append(scores)
+            # Stop the loop if silent frames present
+            if (mel_frames < self.stop_threshold).all() and t > 10: break
+    
+        # Concat the mel outputs into sequence
+        mel_outputs = torch.cat(mel_outputs, dim=2)
+    
+        # Post-Process for Linear Spectrograms
+        postnet_out = self.postnet(mel_outputs)
+        linear = self.post_proj(postnet_out)
+    
+        linear = linear.transpose(1, 2)[0].cpu().data.numpy()
+        mel_outputs = mel_outputs[0].cpu().data.numpy()
+    
+        # For easy visualisation
+        attn_scores = torch.cat(attn_scores, 1)
+        attn_scores = attn_scores.cpu().data.numpy()[0]
+    
+        self.train()
+    
+        return mel_outputs, linear, attn_scores, style_attn_scores
     
     def generate(self, x, ref_mel, steps=2000):
         self.eval()

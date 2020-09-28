@@ -97,6 +97,7 @@ class STL(nn.Module):
     def forward(self, inputs):
         N = inputs.size(0)
         query = inputs.unsqueeze(1)  # [N, 1, E//2]
+        # TODO: Add cosine similarity loss for tokens instead of tanh
         keys = torch.tanh(self.embed).unsqueeze(0).expand(N, -1, -1)  # [N, token_num, E // num_heads]
         style_embed, attn_score = self.attention(query, keys)
         return style_embed, attn_score
@@ -174,3 +175,4 @@ if __name__ == '__main__':
     rand_inp = torch.rand(2, 80, 73)
     out = gst(rand_inp)
     scalars = torch.tensor([1., 0., 0., 0, 0, 0, 0, 0, 0, 0])
+    out_scored = gst.forward_with_scores(scalars, 2)

@@ -15,6 +15,7 @@ if __name__ == '__main__':
     # Parse Arguments
     parser = argparse.ArgumentParser(description='TTS Generator')
     parser.add_argument('--input_text', '-i', type=str, help='[string] Type in something here and TTS will generate it!')
+    parser.add_argument('--style_token', '-t', type=int, help='[int] Select which style token to use.', default=None)
     parser.add_argument('--tts_weights', type=str, help='[string/path] Load in different Tacotron weights')
     parser.add_argument('--save_attention', '-a', dest='save_attn', action='store_true', help='Save Attention Plots')
     parser.add_argument('--force_cpu', '-c', action='store_true', help='Forces CPU-only training, even when in CUDA capable environment')
@@ -137,31 +138,39 @@ if __name__ == '__main__':
                     ('r', tts_model.r),
                     ('Vocoder Type', 'Griffin-Lim'),
                     ('GL Iters', args.iters)])
-
-    for i, x in enumerate(inputs, 1):
-
-        print(f'\n| Generating {i}/{len(inputs)}')
-        _, m, attention, style_attn_scores = tts_model.generate(x)
-
-        if args.vocoder == 'griffinlim':
-            v_type = args.vocoder
-        elif args.vocoder == 'wavernn' and args.batched:
-            v_type = 'wavernn_batched'
-        else:
-            v_type = 'wavernn_unbatched'
-
-        if input_text:
-            save_path = paths.tts_output/f'__input_{input_text[:10]}_{v_type}_{tts_k}k.wav'
-        else:
-            save_path = paths.tts_output/f'{i}_{v_type}_{tts_k}k.wav'
-
-        if save_attn: save_attention(attention, save_path)
-
-        if args.vocoder == 'wavernn':
-            m = torch.tensor(m).unsqueeze(0)
-            voc_model.generate(m, save_path, batched, hp.voc_target, hp.voc_overlap, hp.mu_law)
-        elif args.vocoder == 'griffinlim':
-            wav = reconstruct_waveform(m, n_iter=args.iters)
-            save_wav(wav, save_path)
-
-    print('\n\nDone.\n')
+        
+    if args.style_token is not None:
+        scalars = [args.style_token]
+    else:
+        scalars = range(hp.token_num)
+        
+    for token_num in scalars:
+        token_sel = torch.zeros(hp.token_num)
+        token_sel[token_num] = 1.
+        for i, x in enumerate(inputs, 1):
+    
+            print(f'\n| Generating {i}/{len(inputs)}')
+            _, m, attention, style_attn_scores = tts_model.generate_with_scores(x, scalars=token_sel)
+    
+            if args.vocoder == 'griffinlim':
+                v_type = args.vocoder
+            elif args.vocoder == 'wavernn' and args.batched:
+                v_type = 'wavernn_batched'
+            else:
+                v_type = 'wavernn_unbatched'
+    
+            if input_text:
+                save_path = paths.tts_output/f'__input_{input_text[:10]}_{v_type}_{tts_k}k_GST{token_num}.wav'
+            else:
+                save_path = paths.tts_output/f'{i}_{v_type}_{tts_k}k.wav'
+    
+            if save_attn: save_attention(attention, save_path)
+    
+            if args.vocoder == 'wavernn':
+                m = torch.tensor(m).unsqueeze(0)
+                voc_model.generate(m, save_path, batched, hp.voc_target, hp.voc_overlap, hp.mu_law)
+            elif args.vocoder == 'griffinlim':
+                wav = reconstruct_waveform(m, n_iter=args.iters)
+                save_wav(wav, save_path)
+    
+        print('\n\nDone.\n')
