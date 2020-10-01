@@ -212,14 +212,17 @@ class Decoder(nn.Module):
     # yet ought to be scoped by class because its a property of a Decoder
     max_r = 20
     
-    def __init__(self, n_mels, decoder_dims, lstm_dims):
+    def __init__(self, n_mels, decoder_dims, lstm_dims):#, GRU=False):
         super().__init__()
         self.register_buffer('r', torch.tensor(1, dtype=torch.int))
         self.n_mels = n_mels
         self.prenet = PreNet(n_mels)
         self.attn_net = LSA(decoder_dims)
-        # self.attn_rnn = nn.GRUCell(decoder_dims + 128, decoder_dims)
+        # if GRU:
+        #
+        #     self.attn_rnn = nn.GRUCell(decoder_dims + 128, decoder_dims)
         # self.attn_rnn = nn.LSTMCell(decoder_dims + 128, decoder_dims)
+        # else:
         self.attn_rnn1 = nn.LSTMCell(decoder_dims + 128, decoder_dims+128)
         # self.attn_rnn1 = nn.LSTMCell(decoder_dims + 128, decoder_dims)
         self.attn_rnn2 = nn.LSTMCell(decoder_dims+128, decoder_dims)

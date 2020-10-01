@@ -131,23 +131,26 @@ class MultiHeadAttention(nn.Module):
     def forward(self, query, key):
         # query  [N, 1, E//2]
         # key  [N, token_num, E // num_heads]
-        
-        values = self.W_value(key)
+        # TODO: some don't project this
+        # values = self.W_value(key)
         # TODO: decide whether to pass keys (style tokens) to dense or not when selecting
         split_size = self.num_units // self.num_heads
         
-        querys = self.W_query(query)  # [N, T_q, num_units]
+        querys = self.W_query(query)  # [N, T_q, num_units] (n_units  = hp.tts_embed_dims)
         keys = self.W_key(key)  # [N, T_k, num_units]
         querys = torch.stack(torch.split(querys, split_size, dim=2), dim=0)  # [h, N, T_q, num_units/h]
         keys = torch.stack(torch.split(keys, split_size, dim=2), dim=0)  # [h, N, T_k, num_units/h]
-        scores = torch.cosine_similarity(querys, keys, dim=-1)[:, :, None, :]  # ([8, 32, 1, 10])
-        scores = F.softmax(scores, dim=3)  # [h, N, 1, T_k]
-        values = torch.stack(torch.split(values, split_size, dim=2), dim=0)  # [h, N, T_k, num_units/h]
+        # scores = torch.cosine_similarity(querys, keys, dim=-1)[:, :, None, :]  # ([8, 32, 1, 10])
+        # scores = F.softmax(scores, dim=3)  # [h, N, 1, T_k]
+        # values = torch.stack(torch.split(values, split_size, dim=2), dim=0)  # [h, N, T_k, num_units/h]
+        # TODO: if not project, tile instead
+        # vs = tf.tile(tf.expand_dims(v, axis=1), [1, hp.num_heads, 1, 1])
+        values = key.unsqueeze(0).repeat(hp.num_heads, 1, 1, 1)
         
         # this is scaled dot prod. Authors used content based attention instead
         # score = softmax(QK^T / (d_k ** 0.5))
-        # scores = torch.matmul(querys, keys.transpose(2, 3))  # [h, N, T_q, T_k] [8, 32, 1, 10])
-        # scores = scores / (self.key_dim ** 0.5)
+        scores = torch.matmul(querys, keys.transpose(2, 3))  # [h, N, T_q, T_k] [8, 32, 1, 10])
+        scores = scores / (self.key_dim ** 0.5)
         
         out = torch.matmul(scores, values)  # [h, N, T_q, num_units/h]
         out = torch.cat(torch.split(out, 1, dim=0), dim=3).squeeze(0)  # [N, T_q, num_units]
@@ -157,11 +160,13 @@ class MultiHeadAttention(nn.Module):
     def forward_with_scores(self, key, scores):
         # query  [N, 1, E//2]
         # key  [N, token_num, E // num_heads]
-        
-        values = self.W_value(key)
+        #TODO: try not to project
+        # values = key
+        # values = self.W_value(key)
         # TODO: decide whether to pass keys (style tokens) to dense or not when selecting
         split_size = self.num_units // self.num_heads
-        values = torch.stack(torch.split(values, split_size, dim=2), dim=0)  # [h, N, T_k, num_units/h]
+        # values = torch.stack(torch.split(values, split_size, dim=2), dim=0)  # [h, N, T_k, num_units/h]
+        values = key.unsqueeze(0).repeat(hp.num_heads, 1, 1, 1)
         out = torch.matmul(scores, values)  # [h, N, T_q, num_units/h]
         out = torch.cat(torch.split(out, 1, dim=0), dim=3).squeeze(0)  # [N, T_q, num_units]
         

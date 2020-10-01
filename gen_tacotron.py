@@ -165,7 +165,8 @@ if __name__ == '__main__':
                 save_path = paths.tts_output/f'{i}_{v_type}_{tts_k}k.wav'
     
             if save_attn: save_attention(attention, save_path)
-    
+            # Fix mel spectrogram scaling to be from 0 to 1
+            m = (m + 4) / 8
             if args.vocoder == 'wavernn':
                 m = torch.tensor(m).unsqueeze(0)
                 voc_model.generate(m, save_path, batched, hp.voc_target, hp.voc_overlap, hp.mu_law)

@@ -163,18 +163,18 @@ class TacoTrainer:
             generate_text = ['United Airlines five six three from Los Angeles to New Orleans has Landed.',
                              'Is that Utah travel agency?']
             generate_text = [text_to_sequence(clean_text(t)) for t in generate_text]
-            for text_id, text in generate_text:
+            for text_id, text in enumerate(generate_text):
                 for token_num in range(hp.token_num):
-                    token_sel = torch.zeros(hp.token_num)
+                    token_sel = torch.zeros(hp.token_num).to(device)
                     token_sel[token_num] = 1.
                     
                     _, m2_hat, _, _ = model.generate_with_scores(text, scalars=token_sel)
                     m2_hat_fig = plot_mel(m2_hat)
                     
-                    self.writer.add_figure(f'Generated/postnet_token{token_num}', m2_hat_fig, model.step)
+                    self.writer.add_figure(f'Generated_sample{text_id}/postnet_token{token_num}', m2_hat_fig, model.step)
                     
                     m2_hat_wav = reconstruct_waveform(m2_hat)
                     
                     self.writer.add_audio(
-                        tag=f'Generated/postnet_wav_token{token_num}', snd_tensor=m2_hat_wav,
+                        tag=f'Generated_sample{text_id}/postnet_wav_token{token_num}', snd_tensor=m2_hat_wav,
                         global_step=model.step, sample_rate=hp.sample_rate)

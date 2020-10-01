@@ -8,8 +8,8 @@ if local:
     wav_path = '/Volumes/data/datasets/blizzard/'
     data_path = '/Volumes/data/datasets/blizzard/forward_taco_data/'
 else:
-    wav_path = '/home/sysgen/datasets_unprocessed/blizzard/'
-    data_path = '/home/sysgen/datasets_unprocessed/blizzard/forward_taco_data/'
+    wav_path = '/data/datasets/blizzard/'
+    data_path = '/data/datasets/blizzard/forward_taco_data_wavernn/'
 
 # wav_path = '/home/sysgen/datasets_unprocessed/LJSpeech-1.1/'
 
@@ -21,7 +21,7 @@ else:
 # model ids are separate - that way you can use a new tts with an old wavernn and vice versa
 # NB: expect undefined behaviour if models were trained on different DSP settings
 voc_model_id = 'blizzard_tts'
-tts_model_id = 'blizzard_tts_LSTM'
+tts_model_id = 'blizzard_tts_LSTM_wavernn_no_dense_value'
 
 # set this to True if you are only interested in WaveRNN
 ignore_tts = False
@@ -36,12 +36,13 @@ fft_bins = n_fft // 2 + 1
 num_mels = 80
 hop_length = 256                    # 12.5ms - in line with Tacotron 2 paper
 win_length = 1024                   # 50ms - same reason as above
-fmin = 0
 fmax = 8000
 bits = 9                            # bit depth of signal
 mu_law = True                       # Recommended to suppress noise if using raw bits in hp.voc_mode below
 peak_norm = False                   # Normalise to the peak of each wav file
-
+fmin = 40
+min_level_db = -100
+ref_level_db = 20
 
 # GENERAL TRAINING ----------------------------------------------------------------------------------------------------------#
 
@@ -107,15 +108,15 @@ ref_enc_pad = [1, 1]
 ref_enc_gru_size = tts_embed_dims // 2
 # style token layer
 token_num = 10
-num_heads = 1
+num_heads = 8
 
 # Training
 
 tts_schedule = [(10,  1.0e-3,  20_000,  64),   # progressive training schedule
-                (5,  1.0e-3, 30_000,  32),   # (r, lr, step, batch_size)
-                (3,  1.0e-3, 80_000,  32),
-                (2,  1.0e-3, 500_000,  32),
-                (2,  5.0e-4, 1_000_000,  32),]
+                (5,  1.0e-3, 100_000,  32),   # (r, lr, step, batch_size)
+                (3,  1.0e-3, 180_000,  16),
+                (2,  1.0e-3, 500_000,  16),
+                (2,  5.0e-4, 1_000_000,  16),]
 tts_max_mel_len = 1250              # if you have a couple of extremely long spectrograms you might want to use this
 tts_clip_grad_norm = 1.0            # clips the gradient norm to prevent explosion - set to None if not needed
 tts_checkpoint_every = 10_000        # checkpoints the model every X steps

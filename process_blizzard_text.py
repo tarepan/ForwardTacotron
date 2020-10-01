@@ -9,7 +9,7 @@ from utils.text import cleaners
 from utils import hparams as hp
 
 if __name__ == '__main__':
-    main_dir = '/Volumes/data/datasets/blizzard/'
+    main_dir = '/data/datasets/blizzard/'
     main_dir = Path(main_dir)
     if not (main_dir / 'text_dict_original.pkl').exists():
         text_data1 = main_dir / 'BC2013_segmented_v0_txt1'
@@ -29,7 +29,7 @@ if __name__ == '__main__':
         pickle.dump(text_lines, open(main_dir / 'text_dict_original.pkl', 'wb'))
     if not (main_dir / 'text_dict_cleaned.pkl').exists():
         original_text = pickle.load(open(main_dir / 'text_dict_original.pkl', 'rb'))
-        hp.configure('../hparams.py')
+        hp.configure('hparams.py')
         cleaned_data = {}
         for file in tqdm.tqdm(original_text):
             line = original_text[file]
@@ -49,7 +49,7 @@ if __name__ == '__main__':
                 if len(batch_text) == 0:
                     break
                 phonemized_batch = phonemize(batch_text,
-                                             language='en-gb',
+                                             language='en-us',
                                              backend='espeak',
                                              strip=True,
                                              preserve_punctuation=True,
@@ -64,7 +64,7 @@ if __name__ == '__main__':
         for file in failed_files:
             text = cleaned_text[file]
             phonemized_text = phonemize(text,
-                                         language='en-gb',
+                                         language='en-us',
                                          backend='espeak',
                                          strip=True,
                                          preserve_punctuation=True,

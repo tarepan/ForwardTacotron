@@ -24,6 +24,30 @@ def valid_n_workers(num):
         raise argparse.ArgumentTypeError('%r must be an integer greater than 0' % num)
     return n
 
+# def trim_long_silences(wav):
+#     int16_max = (2 ** 15) - 1
+#     samples_per_window = (hp.vad_window_length * hp.vad_sample_rate) // 1000
+#     wav = wav[:len(wav) - (len(wav) % samples_per_window)]
+#     pcm_wave = struct.pack("%dh" % len(wav), *(np.round(wav * int16_max)).astype(np.int16))
+#     voice_flags = []
+#     vad = webrtcvad.Vad(mode=3)
+#     for window_start in range(0, len(wav), samples_per_window):
+#         window_end = window_start + samples_per_window
+#         voice_flags.append(vad.is_speech(pcm_wave[window_start * 2:window_end * 2],
+#                                          sample_rate=hp.vad_sample_rate))
+#     voice_flags = np.array(voice_flags)
+#     def moving_average(array, width):
+#         array_padded = np.concatenate((np.zeros((width - 1) // 2), array, np.zeros(width // 2)))
+#         ret = np.cumsum(array_padded, dtype=float)
+#         ret[width:] = ret[width:] - ret[:-width]
+#         return ret[width - 1:] / width
+#     audio_mask = moving_average(voice_flags, hp.vad_moving_average_width)
+#     audio_mask = np.round(audio_mask).astype(np.bool)
+#     voice_indices = np.where(audio_mask)[0]
+#     voice_start, voice_end = voice_indices[0], voice_indices[-1]
+#     audio_mask[voice_start:voice_end] = binary_dilation(audio_mask[voice_start:voice_end], np.ones(hp.vad_max_silence_length + 1))
+#     audio_mask = np.repeat(audio_mask, samples_per_window)
+#     return wav[audio_mask]
 
 parser = argparse.ArgumentParser(description='Preprocessing for WaveRNN and Tacotron')
 parser.add_argument('--path', '-p', help='directly point to dataset path (overrides hparams.wav_path')
@@ -62,24 +86,26 @@ class Preprocessor:
         self.paths = paths
     
     def process_wav(self, path: Path):
-        try:
-            wav_id = path.stem
-            m, x = convert_file(path)
-            np.save(self.paths.mel / f'{wav_id}.npy', m, allow_pickle=False)
-            np.save(self.paths.quant / f'{wav_id}.npy', x, allow_pickle=False)
-            return wav_id, m.shape[-1]
-        except Exception as e:
-            try:
-                traceback.print_stack(e)
-            except:
-                pass
-            return None, None
+        # try:
+        wav_id = path.stem
+        m, x = convert_file(path)
+        np.save(self.paths.mel / f'{wav_id}.npy', m, allow_pickle=False)
+        assert (self.paths.mel / f'{wav_id}.npy').exists(), 'File not created.'
+        np.save(self.paths.quant / f'{wav_id}.npy', x, allow_pickle=False)
+        return wav_id, m.shape[-1]
+        # except Exception as e:
+        #     try:
+        #         traceback.print_stack(e)
+        #         exit()
+        #     except:
+        #         traceback.print_stack(e)
+        #         pass
+        #     return None, None
 
 
 if __name__ == '__main__':
     wav_files = get_files(path, extension)
     paths = Paths(hp.data_path, hp.voc_model_id, hp.tts_model_id)
-    
     print(f'\n{len(wav_files)} {extension[1:]} files found in "{path}"\n')
     assert len(wav_files) == 147249
     if len(wav_files) == 0:
