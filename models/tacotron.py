@@ -179,7 +179,7 @@ class LSA(nn.Module):
         self.attention = None
 
     def init_attention(self, encoder_seq_proj):
-        device = next(self.parameters()).device  # use same device as parameters
+        device = encoder_seq_proj.device  # use same device as parameters
         b, t, c = encoder_seq_proj.size()
         self.cumulative = torch.zeros(b, t, device=device)
         self.attention = torch.zeros(b, t, device=device)
@@ -222,7 +222,7 @@ class Decoder(nn.Module):
         self.mel_proj = nn.Linear(lstm_dims, n_mels * self.max_r, bias=False)
 
     def zoneout(self, prev, current, p=0.1):
-        device = next(self.parameters()).device  # Use same device as parameters
+        device = current.device  # Use same device as parameters
         mask = torch.zeros(prev.size(), device=device).bernoulli_(p)
         return prev * mask + current * (1 - mask)
 
@@ -308,7 +308,7 @@ class Tacotron(nn.Module):
         self.decoder.r = self.decoder.r.new_tensor(value, requires_grad=False)
 
     def forward(self, x, m, generate_gta=False):
-        device = next(self.parameters()).device  # use same device as parameters
+        device = x.device  # use same device as parameters
 
         if self.training:
             self.step += 1
@@ -365,7 +365,7 @@ class Tacotron(nn.Module):
 
     def generate(self, x, steps=2000):
         self.eval()
-        device = next(self.parameters()).device  # use same device as parameters
+        device = x.device  # use same device as parameters
 
         batch_size = 1
         x = torch.as_tensor(x, dtype=torch.long, device=device).unsqueeze(0)
@@ -440,9 +440,7 @@ class Tacotron(nn.Module):
         with open(path, 'a') as f:
             print(msg, file=f)
 
-    def load(self, path: Union[str, Path]):
-        # Use device of model params as location for loaded state
-        device = next(self.parameters()).device
+    def load(self, path: Union[str, Path], device):
         state_dict = torch.load(path, map_location=device)
 
         # Backwards compatibility with old saved models

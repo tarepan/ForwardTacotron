@@ -8,6 +8,7 @@ from torch.utils.data.dataloader import DataLoader
 from typing import Tuple
 
 from models.tacotron import Tacotron
+from models.factory import get_distributed_tacotron
 from trainer.taco_trainer import TacoTrainer
 from utils import hparams as hp
 from utils.checkpoints import restore_checkpoint
@@ -170,6 +171,8 @@ if __name__ == '__main__':
                      num_highways=hp.tts_num_highways,
                      dropout=hp.tts_dropout,
                      stop_threshold=hp.tts_stop_threshold).to(device)
+    model = get_distributed_tacotron(model)
+    model.to(device)
 
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])

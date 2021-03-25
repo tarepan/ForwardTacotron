@@ -109,7 +109,7 @@ if __name__ == '__main__':
                          stop_threshold=hp.tts_stop_threshold).to(device)
 
     tts_load_path = tts_weights if tts_weights else paths.tts_latest_weights
-    tts_model.load(tts_load_path)
+    tts_model.load(tts_load_path, device)
 
     if input_text:
         text = clean_text(input_text.strip())
