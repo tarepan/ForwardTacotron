@@ -106,16 +106,46 @@ def create_align_features(model: Tacotron,
 
     for i, batch in enumerate(dataset, 1):
         batch = to_device(batch, device=device)
+        model.decoder.prenet.train()
         with torch.no_grad():
-            _, _, att_batch = model(batch['x'], batch['mel'])
-        align_score, sharp_score = attention_score(att_batch, batch['mel_len'], r=1)
-        att_batch = np_now(att_batch)
-        seq, att, mel_len, item_id = batch['x'][0], att_batch[0], batch['mel_len'][0], batch['item_id'][0]
-        align_score, sharp_score = float(align_score[0]), float(sharp_score[0])
+            _, _, att_batch_tiled = model(batch['x'].repeat(32, 1), batch['mel'].repeat(32, 1, 1))
+
+        with torch.no_grad():
+            _, _, att_batch_train = model(batch['x'], batch['mel'])
+
+        model.decoder.prenet.eval()
+        with torch.no_grad():
+            _, _, att_batch_eval = model(batch['x'], batch['mel'])
+
+        att_batch_avg = torch.mean(att_batch_tiled, dim=0).unsqueeze(0)
+        align_score_train, sharp_score_train = attention_score(att_batch_train, batch['mel_len'], r=1)
+        align_score_eval, sharp_score_eval = attention_score(att_batch_eval, batch['mel_len'], r=1)
+        align_score_avg, sharp_score_avg = attention_score(att_batch_avg, batch['mel_len'], r=1)
+
+        att_batch_train = np_now(att_batch_train)
+        att_batch_eval = np_now(att_batch_eval)
+        att_batch_avg = np_now(att_batch_avg)
+
+        fig = plot_attention(att_batch_train)
+        plt.savefig(f'/tmp/att/{i}_train.png')
+        fig = plot_attention(att_batch_eval)
+        plt.savefig(f'/tmp/att/{i}_eval.png')
+        fig = plot_attention(att_batch_avg)
+        plt.savefig(f'/tmp/att/{i}_avg.png')
+
+        print(f'score train {align_score_train}, {sharp_score_train}')
+        print(f'score eval {align_score_eval}, {sharp_score_eval}')
+        print(f'score avg {align_score_avg}, {sharp_score_avg}')
+        
+
+        seq, att, mel_len, item_id = batch['x'][0], att_batch_avg[0], batch['mel_len'][0], batch['item_id'][0]
+        align_score, sharp_score = float(align_score_train[0]), float(sharp_score_train[0])
         att_score_dict[item_id] = (align_score, sharp_score)
         durs = dur_extraction_func(seq, att, mel_len)
+        print(f'{i} avg | {durs}')
         if np.sum(durs) != mel_len:
             print(f'WARNINNG: Sum of durations did not match mel length for item {item_id}!')
+
         np.save(str(save_path_alg / f'{item_id}.npy'), durs, allow_pickle=False)
         bar = progbar(i, iters)
         msg = f'{bar} {i}/{iters} Batches '
