@@ -126,12 +126,12 @@ def create_align_features(model: Tacotron,
         att_batch_eval = np_now(att_batch_eval)
         att_batch_avg = np_now(att_batch_avg)
 
-        fig = plot_attention(att_batch_train)
-        plt.savefig(f'/tmp/att/{i}_train.png')
-        fig = plot_attention(att_batch_eval)
-        plt.savefig(f'/tmp/att/{i}_eval.png')
-        fig = plot_attention(att_batch_avg)
-        plt.savefig(f'/tmp/att/{i}_avg.png')
+        #fig = plot_attention(att_batch_train)
+        #plt.savefig(f'/tmp/att/{i}_train.png')
+        #fig = plot_attention(att_batch_eval)
+        #plt.savefig(f'/tmp/att/{i}_eval.png')
+        #fig = plot_attention(att_batch_avg)
+        #plt.savefig(f'/tmp/att/{i}_avg.png')
 
         print(f'score train {align_score_train}, {sharp_score_train}')
         print(f'score eval {align_score_eval}, {sharp_score_eval}')
