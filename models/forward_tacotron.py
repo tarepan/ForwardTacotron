@@ -80,12 +80,11 @@ class SeriesPredictor(nn.Module):
 
 class ConvResNet(nn.Module):
 
-    def __init__(self, in_dims: int, conv_dims=256) -> None:
+    def __init__(self, in_dims: int, layers=5, conv_dims=512) -> None:
         super().__init__()
         self.first_conv = BatchNormConv(in_dims, conv_dims, 5, activation=torch.relu)
         self.convs = torch.nn.ModuleList([
-            BatchNormConv(conv_dims, conv_dims, 5, activation=torch.relu),
-            BatchNormConv(conv_dims, conv_dims, 5, activation=torch.relu),
+            BatchNormConv(conv_dims, conv_dims, 5, activation=torch.tanh) for _ in range(layers-1)
         ])
 
     def forward(self, x: torch.tensor) -> torch.tensor:
@@ -99,6 +98,26 @@ class ConvResNet(nn.Module):
         return x
 
 
+class ConvLstm(nn.Module):
+
+    def __init__(self, in_dims: int, layers=3, conv_dims=512, lstm_dims=512) -> None:
+        super().__init__()
+        self.first_conv = BatchNormConv(in_dims, conv_dims, 5, activation=torch.relu)
+        self.convs = torch.nn.ModuleList([
+            BatchNormConv(conv_dims, conv_dims, 5, activation=torch.relu) for _ in range(layers-1)
+        ])
+        self.lstm = nn.LSTM(conv_dims, lstm_dims, batch_first=True, bidirectional=True)
+
+    def forward(self, x: torch.tensor) -> torch.tensor:
+        x = x.transpose(1, 2)
+        x = self.first_conv(x)
+        for conv in self.convs:
+            x = conv(x)
+        x = x.transpose(1, 2)
+        x, _ = self.lstm(x)
+        return x
+
+
 class BatchNormConv(nn.Module):
 
     def __init__(self, in_channels: int, out_channels: int, kernel: int, activation=None):
@@ -109,9 +128,9 @@ class BatchNormConv(nn.Module):
 
     def forward(self, x: torch.tensor) -> torch.tensor:
         x = self.conv(x)
+        x = self.bnorm(x)
         if self.activation:
             x = self.activation(x)
-        x = self.bnorm(x)
         return x
 
 
@@ -134,16 +153,14 @@ class ForwardTacotron(nn.Module):
                  energy_dropout: float,
                  energy_emb_dims: int,
                  energy_proj_dropout: float,
-                 rnn_dims: int,
-                 prenet_k: int,
-                 prenet_dims: int,
-                 postnet_k: int,
-                 postnet_dims: int,
-                 num_highways: int,
+                 prenet_conv_dims: int,
+                 prenet_lstm_dims: int,
+                 main_conv_dims: int,
+                 main_lstm_dims: int,
+                 postnet_conv_dims: int,
                  dropout: float,
                  n_mels: int):
         super().__init__()
-        self.rnn_dims = rnn_dims
         self.embedding = nn.Embedding(num_chars, embed_dims)
         self.lr = LengthRegulator()
         self.dur_pred = SeriesPredictor(num_chars=num_chars,
@@ -161,26 +178,20 @@ class ForwardTacotron(nn.Module):
                                            conv_dims=energy_conv_dims,
                                            rnn_dims=energy_rnn_dims,
                                            dropout=energy_dropout)
-        self.prenet = CBHG(K=prenet_k,
-                           in_channels=embed_dims,
-                           channels=prenet_dims,
-                           proj_channels=[prenet_dims, embed_dims],
-                           num_highways=num_highways)
-        self.lstm = nn.LSTM(2 * prenet_dims + pitch_emb_dims + energy_emb_dims,
-                            rnn_dims,
-                            batch_first=True,
-                            bidirectional=True)
-        self.lin = torch.nn.Linear(2 * rnn_dims, n_mels)
-        self.register_buffer('step', torch.zeros(1, dtype=torch.long))
-        self.postnet = CBHG(K=postnet_k,
-                            in_channels=n_mels,
-                            channels=postnet_dims,
-                            proj_channels=[postnet_dims, n_mels],
-                            num_highways=num_highways)
+        self.prenet = ConvLstm(in_dims=embed_dims,
+                               conv_dims=prenet_conv_dims,
+                               lstm_dims=prenet_lstm_dims)
+        self.main_net = ConvLstm(in_dims=2 * prenet_lstm_dims + pitch_emb_dims + energy_emb_dims,
+                                 conv_dims=main_conv_dims,
+                                 lstm_dims=main_lstm_dims)
+        self.lin = torch.nn.Linear(2 * main_lstm_dims, n_mels)
+        self.postnet = ConvResNet(in_dims=n_mels, conv_dims=postnet_conv_dims)
         self.dropout = dropout
-        self.post_proj = nn.Linear(2 * postnet_dims, n_mels, bias=False)
+        self.post_proj = nn.Linear(postnet_conv_dims, n_mels, bias=False)
         self.pitch_emb_dims = pitch_emb_dims
         self.energy_emb_dims = energy_emb_dims
+        self.register_buffer('step', torch.zeros(1, dtype=torch.long))
+
         if pitch_emb_dims > 0:
             self.pitch_proj = nn.Sequential(
                 nn.Conv1d(1, pitch_emb_dims, kernel_size=3, padding=1),
@@ -207,7 +218,6 @@ class ForwardTacotron(nn.Module):
         energy_hat = self.energy_pred(x, x_lens=x_lens).transpose(1, 2)
 
         x = self.embedding(x)
-        x = x.transpose(1, 2)
         x = self.prenet(x)
 
         if self.pitch_emb_dims > 0:
@@ -221,24 +231,14 @@ class ForwardTacotron(nn.Module):
             x = torch.cat([x, energy_proj], dim=-1)
 
         x = self.lr(x, dur)
-
-        x = pack_padded_sequence(x, lengths=mel_lens.cpu(), enforce_sorted=False,
-                                 batch_first=True)
-
-        x, _ = self.lstm(x)
-
-        x, _ = pad_packed_sequence(x, padding_value=MEL_PAD_VALUE, batch_first=True)
-
-        x = F.dropout(x,
-                      p=self.dropout,
-                      training=self.training)
+        x = self.main_net(x)
         x = self.lin(x)
-        x = x.transpose(1, 2)
 
         x_post = self.postnet(x)
         x_post = self.post_proj(x_post)
-        x_post = x_post.transpose(1, 2)
 
+        x = x.transpose(1, 2)
+        x_post = x_post.transpose(1, 2)
         x_post = self.pad(x_post, mel.size(2))
         x = self.pad(x, mel.size(2))
 
@@ -268,7 +268,6 @@ class ForwardTacotron(nn.Module):
         energy_hat = energy_function(energy_hat)
 
         x = self.embedding(x)
-        x = x.transpose(1, 2)
         x = self.prenet(x)
 
         if self.pitch_emb_dims > 0:
@@ -280,16 +279,13 @@ class ForwardTacotron(nn.Module):
             x = torch.cat([x, energy_hat_proj], dim=-1)
 
         x = self.lr(x, dur)
-
-        x, _ = self.lstm(x)
-        x = F.dropout(x,
-                      p=self.dropout,
-                      training=self.training)
+        x = self.main_net(x)
         x = self.lin(x)
-        x = x.transpose(1, 2)
 
         x_post = self.postnet(x)
         x_post = self.post_proj(x_post)
+
+        x = x.transpose(1, 2)
         x_post = x_post.transpose(1, 2)
 
         x, x_post, dur = x.squeeze(), x_post.squeeze(), dur.squeeze()
