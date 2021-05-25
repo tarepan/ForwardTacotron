@@ -220,6 +220,7 @@ class ForwardTrainer:
         self.writer.add_figure('Generated/linear', m1_hat_fig, model.step)
         self.writer.add_figure('Generated/postnet', m2_hat_fig, model.step)
 
+        """
         m2_hat_wav = self.dsp.griffinlim(m2_hat)
 
         self.writer.add_audio(
@@ -228,3 +229,4 @@ class ForwardTrainer:
         self.writer.add_audio(
             tag='Generated/postnet_wav', snd_tensor=m2_hat_wav,
             global_step=model.step, sample_rate=self.dsp.sample_rate)
+        """

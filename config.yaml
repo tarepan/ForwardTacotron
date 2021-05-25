@@ -1,6 +1,6 @@
 
 voc_model_id: 'ljspeech_voc'
-tts_model_id: 'ljspeech_tts'
+tts_model_id: 'ljspeech_finetune_melgan_tts'
 
 data_path: 'data/' # output data path
 
@@ -8,7 +8,7 @@ dsp:
 
   sample_rate: 22050
   n_fft: 1024
-  num_mels: 80
+  num_mels: 512
   hop_length: 256                    # 12.5ms - in line with Tacotron 2 paper
   win_length: 1024                   # 50ms - same reason as above
   fmin: 0
@@ -145,7 +145,7 @@ forward_tacotron:
     max_mel_len: 1250              # if you have a couple of extremely long spectrograms you might want to use this
     clip_grad_norm: 1.0            # clips the gradient norm to prevent explosion - set to None if not needed
     checkpoint_every: 10_000        # checkpoints the model every X steps
-    plot_every: 1000
+    plot_every: 1
 
     filter_attention: True               # whether to filter data with bad attention scores
     min_attention_sharpness: 0.5         # filter data with bad attention sharpness score, if 0 then no filter

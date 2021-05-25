@@ -259,7 +259,7 @@ class ForwardDataset(Dataset):
         item_id = self.metadata[index]
         text = self.text_dict[item_id]
         x = self.tokenizer(text)
-        mel = np.load(str(self.path/'mel'/f'{item_id}.npy'))
+        mel = torch.load(str(self.path/'mel_gta'/f'{item_id}_gta.mel')).squeeze(0)
         mel_len = mel.shape[-1]
         dur = np.load(str(self.path/'alg'/f'{item_id}.npy'))
         pitch = np.load(str(self.path/'phon_pitch'/f'{item_id}.npy'))
