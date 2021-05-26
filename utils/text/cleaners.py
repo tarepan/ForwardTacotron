@@ -1,6 +1,7 @@
 import re
 from typing import Dict, Any
 
+from dp.phonemizer import Phonemizer
 from phonemizer.phonemize import phonemize
 from utils.text.numbers import normalize_numbers
 from utils.text.symbols import phonemes_set
@@ -31,6 +32,8 @@ _abbreviations = [(re.compile('\\b%s\\.' % x[0], re.IGNORECASE), x[1]) for x in 
     ('ft', 'fort'),
 ]]
 
+phonemizer = Phonemizer.from_checkpoint('/Users/cschaefe/Downloads/en_us_cmudict_ipa_forward.pt')
+
 
 def expand_abbreviations(text):
     for regex, replacement in _abbreviations:
@@ -54,15 +57,7 @@ def english_cleaners(text):
 
 
 def to_phonemes(text: str, lang: str) -> str:
-    phonemes = phonemize(text,
-                         language=lang,
-                         backend='espeak',
-                         strip=True,
-                         preserve_punctuation=True,
-                         with_stress=False,
-                         njobs=1,
-                         punctuation_marks=';:,.!?¡¿—…"«»“”()',
-                         language_switch='remove-flags')
+    phonemes = phonemizer(text, lang=lang)
     phonemes = ''.join([p for p in phonemes if p in phonemes_set])
     return phonemes
 

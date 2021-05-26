@@ -1,6 +1,6 @@
 
 voc_model_id: 'ljspeech_voc'
-tts_model_id: 'ljspeech_tts'
+tts_model_id: 'ljspeech_dp_tts'
 
 data_path: 'data/' # output data path
 
