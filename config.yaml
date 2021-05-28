@@ -141,7 +141,7 @@ forward_tacotron:
     max_mel_len: 1250              # if you have a couple of extremely long spectrograms you might want to use this
     clip_grad_norm: 1.0            # clips the gradient norm to prevent explosion - set to None if not needed
     checkpoint_every: 10_000        # checkpoints the model every X steps
-    plot_every: 1
+    plot_every: 1000
 
     filter_attention: True               # whether to filter data with bad attention scores
     min_attention_sharpness: 0.5         # filter data with bad attention sharpness score, if 0 then no filter
