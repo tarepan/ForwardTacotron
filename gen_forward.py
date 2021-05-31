@@ -78,6 +78,7 @@ if __name__ == '__main__':
     out_path = Path('model_outputs')
     out_path.mkdir(parents=True, exist_ok=True)
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    tts_model.eval(inference=True)
     tts_model.to(device)
     cleaner = Cleaner.from_config(config)
     tokenizer = Tokenizer()
@@ -105,7 +106,7 @@ if __name__ == '__main__':
         x = tokenizer(x)
         x = torch.as_tensor(x, dtype=torch.long, device=device).unsqueeze(0)
 
-        wav_name = f'{i}_forward_{tts_k}k_alpha{args.alpha}_amp{args.amp}_{args.vocoder}'
+        wav_name = f'{i}_forward_{tts_k}k_alpha{args.alpha}_amp{args.amp}_{args.vocoder}_inf'
 
         gen = tts_model.generate(x=x,
                                  alpha=args.alpha,

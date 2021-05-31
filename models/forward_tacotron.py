@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import Embedding
+from torch.nn import Embedding, BatchNorm1d
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from utils.text.symbols import phonemes
@@ -49,6 +49,7 @@ class SeriesPredictor(nn.Module):
         super().__init__()
         self.embedding = Embedding(num_chars, emb_dim)
         self.rnn = nn.GRU(emb_dim, rnn_dims, batch_first=True, bidirectional=True)
+        self.rnn_2 = nn.GRU(2 * rnn_dims, rnn_dims, batch_first=True, bidirectional=True)
         self.lin = nn.Linear(2 * rnn_dims, 1)
         self.dropout = dropout
 
@@ -61,6 +62,7 @@ class SeriesPredictor(nn.Module):
             x = pack_padded_sequence(x, lengths=x_lens, batch_first=True,
                                      enforce_sorted=False)
         x, _ = self.rnn(x)
+        x, _ = self.rnn_2(x)
         if x_lens is not None:
             x, _ = pad_packed_sequence(x, padding_value=0.0, batch_first=True)
         x = F.dropout(x, p=self.dropout, training=self.training)
@@ -72,9 +74,9 @@ class ConvResNet(nn.Module):
 
     def __init__(self, in_dims: int, layers=5, conv_dims=512) -> None:
         super().__init__()
-        self.first_conv = WeightNormConv(in_dims, conv_dims, 5, activation=torch.tanh)
+        self.first_conv = BatchNormConv(in_dims, conv_dims, 5, activation=torch.tanh)
         self.convs = torch.nn.ModuleList([
-            WeightNormConv(conv_dims, conv_dims, 5, activation=torch.tanh) for _ in range(layers-1)
+            BatchNormConv(conv_dims, conv_dims, 5, activation=torch.tanh) for _ in range(layers - 1)
         ])
 
     def forward(self, x: torch.tensor) -> torch.tensor:
@@ -92,10 +94,10 @@ class ConvLstm(nn.Module):
 
     def __init__(self, in_dims: int, layers=3, conv_dims=512, lstm_dims=512) -> None:
         super().__init__()
-        self.first_conv = WeightNormConv(in_dims, conv_dims, 5, activation=torch.relu)
-        self.last_conv = WeightNormConv(conv_dims, conv_dims, 5, activation=None)
+        self.first_conv = BatchNormConv(in_dims, conv_dims, 5, activation=torch.relu)
+        self.last_conv = BatchNormConv(conv_dims, conv_dims, 5, activation=None)
         self.convs = torch.nn.ModuleList([
-            WeightNormConv(conv_dims, conv_dims, 5, activation=torch.relu) for _ in range(layers-2)
+            BatchNormConv(conv_dims, conv_dims, 5, activation=torch.relu) for _ in range(layers - 2)
         ])
         self.lstm = nn.LSTM(conv_dims, lstm_dims, batch_first=True, bidirectional=True)
 
@@ -109,32 +111,21 @@ class ConvLstm(nn.Module):
         x, _ = self.lstm(x)
         return x
 
-    def eval(self, inference=False) -> 'WeightNormConv':
-        self.first_conv.eval(inference=inference)
-        self.last_conv.eval(inference=inference)
-        for conv in self.convs:
-            conv.eval(inference=inference)
-        return self.train(False)
 
-
-class WeightNormConv(nn.Module):
+class BatchNormConv(nn.Module):
 
     def __init__(self, in_channels: int, out_channels: int, kernel: int, activation=None):
         super().__init__()
-        conv = nn.Conv1d(in_channels, out_channels, kernel, stride=1, padding=kernel // 2, bias=False)
-        self.conv = torch.nn.utils.weight_norm(conv)
+        self.conv = nn.Conv1d(in_channels, out_channels, kernel, stride=1, padding=kernel // 2, bias=False)
+        self.bnorm = BatchNorm1d(out_channels)
         self.activation = activation
 
     def forward(self, x: torch.tensor) -> torch.tensor:
         x = self.conv(x)
         if self.activation:
             x = self.activation(x)
+        x = self.bnorm(x)
         return x
-
-    def eval(self, inference=False) -> 'WeightNormConv':
-        if inference:
-            torch.nn.utils.remove_weight_norm(self.conv)
-        return self.train(False)
 
 
 class ForwardTacotron(nn.Module):
@@ -299,12 +290,6 @@ class ForwardTacotron(nn.Module):
 
     def get_step(self) -> int:
         return self.step.data.item()
-
-    def eval(self, inference=False) -> 'ForwardTacotron':
-        self.main_net.eval(inference=inference)
-        self.prenet.eval(inference=inference)
-        return self.train(False)
-
 
     @classmethod
     def from_config(cls, config: Dict[str, Any]) -> 'ForwardTacotron':
