@@ -122,9 +122,9 @@ class BatchNormConv(nn.Module):
 
     def forward(self, x: torch.tensor) -> torch.tensor:
         x = self.conv(x)
+        x = self.bnorm(x)
         if self.activation:
             x = self.activation(x)
-        x = self.bnorm(x)
         return x
 
 
@@ -173,9 +173,11 @@ class ForwardTacotron(nn.Module):
                                  conv_dims=main_conv_dims,
                                  lstm_dims=main_lstm_dims)
         self.lin = torch.nn.Linear(2 * main_lstm_dims, n_mels)
-        self.postnet = ConvResNet(in_dims=n_mels, conv_dims=postnet_conv_dims)
+        self.postnet = ConvLstm(in_dims=n_mels,
+                                 conv_dims=postnet_conv_dims,
+                                 lstm_dims=main_lstm_dims)
         self.dropout = dropout
-        self.post_proj = nn.Linear(postnet_conv_dims, n_mels, bias=False)
+        self.post_proj = nn.Linear(2*main_lstm_dims, n_mels, bias=False)
         self.pitch_emb_dims = pitch_emb_dims
         self.energy_emb_dims = energy_emb_dims
         self.register_buffer('step', torch.zeros(1, dtype=torch.long))
