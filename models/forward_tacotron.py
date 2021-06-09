@@ -171,7 +171,7 @@ class ForwardTacotron(nn.Module):
                                 conv_dims=postnet_conv_dims,
                                 lstm_dims=postnet_lstm_dims)
         self.dropout = dropout
-        self.post_proj = nn.Linear(2*main_lstm_dims, n_mels, bias=False)
+        self.post_proj = nn.Linear(2*postnet_lstm_dims, n_mels, bias=False)
         self.pitch_emb_dims = pitch_emb_dims
         self.energy_emb_dims = energy_emb_dims
         self.register_buffer('step', torch.zeros(1, dtype=torch.long))
