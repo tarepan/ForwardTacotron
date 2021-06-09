@@ -45,11 +45,15 @@ class LengthRegulator(nn.Module):
 
 class SeriesPredictor(nn.Module):
 
-    def __init__(self, num_chars, emb_dim=64, rnn_dims=64, dropout=0.5):
+    def __init__(self, num_chars, emb_dim=64, conv_dims=256, rnn_dims=64, dropout=0.5):
         super().__init__()
         self.embedding = Embedding(num_chars, emb_dim)
-        self.rnn = nn.GRU(emb_dim, rnn_dims, batch_first=True, bidirectional=True)
-        self.rnn_2 = nn.GRU(2 * rnn_dims, rnn_dims, batch_first=True, bidirectional=True)
+        self.convs = torch.nn.ModuleList([
+            BatchNormConv(emb_dim, conv_dims, 5, activation=torch.relu),
+            BatchNormConv(conv_dims, conv_dims, 5, activation=torch.relu),
+            BatchNormConv(conv_dims, conv_dims, 5, activation=torch.relu),
+        ])
+        self.rnn = nn.GRU(conv_dims, rnn_dims, batch_first=True, bidirectional=True)
         self.lin = nn.Linear(2 * rnn_dims, 1)
         self.dropout = dropout
 
@@ -58,36 +62,19 @@ class SeriesPredictor(nn.Module):
                 x_lens: torch.tensor = None,
                 alpha=1.0) -> torch.tensor:
         x = self.embedding(x)
+        x = x.transpose(1, 2)
+        for conv in self.convs:
+            x = conv(x)
+            x = F.dropout(x, p=self.dropout, training=self.training)
+        x = x.transpose(1, 2)
         if x_lens is not None:
             x = pack_padded_sequence(x, lengths=x_lens, batch_first=True,
                                      enforce_sorted=False)
         x, _ = self.rnn(x)
-        x, _ = self.rnn_2(x)
         if x_lens is not None:
             x, _ = pad_packed_sequence(x, padding_value=0.0, batch_first=True)
-        x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.lin(x)
         return x / alpha
-
-
-class ConvResNet(nn.Module):
-
-    def __init__(self, in_dims: int, layers=5, conv_dims=512) -> None:
-        super().__init__()
-        self.first_conv = BatchNormConv(in_dims, conv_dims, 5, activation=torch.tanh)
-        self.convs = torch.nn.ModuleList([
-            BatchNormConv(conv_dims, conv_dims, 5, activation=torch.tanh) for _ in range(layers - 1)
-        ])
-
-    def forward(self, x: torch.tensor) -> torch.tensor:
-        x = x.transpose(1, 2)
-        x = self.first_conv(x)
-        for conv in self.convs:
-            x_res = x
-            x = conv(x)
-            x = x_res + x
-        x = x.transpose(1, 2)
-        return x
 
 
 class ConvLstm(nn.Module):
@@ -122,9 +109,9 @@ class BatchNormConv(nn.Module):
 
     def forward(self, x: torch.tensor) -> torch.tensor:
         x = self.conv(x)
-        x = self.bnorm(x)
         if self.activation:
             x = self.activation(x)
+        x = self.bnorm(x)
         return x
 
 
@@ -134,12 +121,15 @@ class ForwardTacotron(nn.Module):
                  embed_dims: int,
                  series_embed_dims: int,
                  num_chars: int,
+                 durpred_conv_dims: int,
                  durpred_rnn_dims: int,
                  durpred_dropout: float,
+                 pitch_conv_dims: int,
                  pitch_rnn_dims: int,
                  pitch_dropout: float,
                  pitch_emb_dims: int,
                  pitch_proj_dropout: float,
+                 energy_conv_dims: int,
                  energy_rnn_dims: int,
                  energy_dropout: float,
                  energy_emb_dims: int,
@@ -149,6 +139,7 @@ class ForwardTacotron(nn.Module):
                  main_conv_dims: int,
                  main_lstm_dims: int,
                  postnet_conv_dims: int,
+                 postnet_lstm_dims: int,
                  dropout: float,
                  n_mels: int):
         super().__init__()
@@ -156,14 +147,17 @@ class ForwardTacotron(nn.Module):
         self.lr = LengthRegulator()
         self.dur_pred = SeriesPredictor(num_chars=num_chars,
                                         emb_dim=series_embed_dims,
+                                        conv_dims=durpred_conv_dims,
                                         rnn_dims=durpred_rnn_dims,
                                         dropout=durpred_dropout)
         self.pitch_pred = SeriesPredictor(num_chars=num_chars,
                                           emb_dim=series_embed_dims,
+                                          conv_dims=pitch_conv_dims,
                                           rnn_dims=pitch_rnn_dims,
                                           dropout=pitch_dropout)
         self.energy_pred = SeriesPredictor(num_chars=num_chars,
                                            emb_dim=series_embed_dims,
+                                           conv_dims=energy_conv_dims,
                                            rnn_dims=energy_rnn_dims,
                                            dropout=energy_dropout)
         self.prenet = ConvLstm(in_dims=embed_dims,
@@ -174,8 +168,8 @@ class ForwardTacotron(nn.Module):
                                  lstm_dims=main_lstm_dims)
         self.lin = torch.nn.Linear(2 * main_lstm_dims, n_mels)
         self.postnet = ConvLstm(in_dims=n_mels,
-                                 conv_dims=postnet_conv_dims,
-                                 lstm_dims=main_lstm_dims)
+                                conv_dims=postnet_conv_dims,
+                                lstm_dims=postnet_lstm_dims)
         self.dropout = dropout
         self.post_proj = nn.Linear(2*main_lstm_dims, n_mels, bias=False)
         self.pitch_emb_dims = pitch_emb_dims

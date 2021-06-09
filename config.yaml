@@ -1,6 +1,6 @@
 
 voc_model_id: 'ljspeech_voc'
-tts_model_id: 'ljspeech_taco2_tts'
+tts_model_id: 'ljspeech_taco2_new_tts'
 
 data_path: 'data/' # output data path
 
@@ -108,24 +108,29 @@ forward_tacotron:
   model:
     embed_dims: 256             # embedding dimension for the graphemes/phoneme inputs
     series_embed_dims: 64       # grapheme embedding dimension for series predictor
-    durpred_rnn_dims: 64
-    durpred_dropout: 0
 
+    durpred_conv_dims: 256
+    durpred_dropout: 0.5
+    durpred_rnn_dims: 64
+
+    pitch_conv_dims: 256
     pitch_rnn_dims: 128
-    pitch_dropout: 0.
+    pitch_dropout: 0.5
     pitch_emb_dims: 32           # embedding dimension of pitch, set to 0 if you don't want pitch conditioning
     pitch_proj_dropout: 0
 
+    energy_conv_dims: 256
     energy_rnn_dims: 64
     energy_dropout: 0
     energy_emb_dims: 32           # embedding dimension of energy, set to 0 if you don't want energy conditioning
     energy_proj_dropout: 0
 
-    prenet_conv_dims: 512
-    prenet_lstm_dims: 512
+    prenet_conv_dims: 256
+    prenet_lstm_dims: 256
     main_conv_dims: 512
     main_lstm_dims: 512
-    postnet_conv_dims: 512
+    postnet_conv_dims: 256
+    postnet_lstm_dims: 256
     dropout: 0.1
 
   training:

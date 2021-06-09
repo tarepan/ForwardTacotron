@@ -78,7 +78,6 @@ if __name__ == '__main__':
     out_path = Path('model_outputs')
     out_path.mkdir(parents=True, exist_ok=True)
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    tts_model.eval(inference=True)
     tts_model.to(device)
     cleaner = Cleaner.from_config(config)
     tokenizer = Tokenizer()
