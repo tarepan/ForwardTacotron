@@ -121,7 +121,7 @@ forward_tacotron:
 
     energy_conv_dims: 256
     energy_rnn_dims: 64
-    energy_dropout: 0
+    energy_dropout: 0.5
     energy_emb_dims: 32           # embedding dimension of energy, set to 0 if you don't want energy conditioning
     energy_proj_dropout: 0
 
