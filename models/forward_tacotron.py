@@ -25,7 +25,6 @@ class LengthRegulator(nn.Module):
             x_exp = torch.repeat_interleave(x[i], (dur[i] + 0.5).long(), dim=0)
             x_expanded.append(x_exp)
         x_expanded = pad_sequence(x_expanded, padding_value=0, batch_first=True)
-        print(x_expanded.size())
         return x_expanded
 
 
