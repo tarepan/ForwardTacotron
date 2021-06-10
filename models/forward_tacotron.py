@@ -267,7 +267,6 @@ class ForwardTacotron(nn.Module):
 
         x_post = self.postnet(x)
         x_post = self.post_proj(x_post)
-        x_post = x_post + x
 
         x = x.transpose(1, 2)
         x_post = x_post.transpose(1, 2)
