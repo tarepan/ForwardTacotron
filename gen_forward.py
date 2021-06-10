@@ -115,7 +115,7 @@ if __name__ == '__main__':
         m = gen['mel_post']
         if args.vocoder == 'melgan':
             m = torch.tensor(m).unsqueeze(0)
-            torch.save(m, out_path / f'{wav_name}.mel')
+            torch.save(m, out_path / f'{wav_name}_pad.mel')
         if args.vocoder == 'wavernn':
             m = torch.tensor(m).unsqueeze(0)
             wav = voc_model.generate(mels=m,
