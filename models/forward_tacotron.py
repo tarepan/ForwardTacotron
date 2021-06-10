@@ -1,17 +1,88 @@
 from pathlib import Path
 from typing import Union, Callable, Dict, Any
 
+import math
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import Embedding
+from torch.nn import Embedding, TransformerEncoderLayer, LayerNorm, TransformerEncoder
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from models.common_layers import CBHG
 from utils.text.symbols import phonemes
 
 MEL_PAD_VALUE = -11.5129
+
+
+
+
+class PositionalEncoding(torch.nn.Module):
+
+    def __init__(self, d_model: int, dropout=0.1, max_len=5000) -> None:
+        super(PositionalEncoding, self).__init__()
+        self.dropout = torch.nn.Dropout(p=dropout)
+        self.scale = torch.nn.Parameter(torch.ones(1))
+
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(
+            0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0).transpose(0, 1)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x: torch.tensor) -> torch.tensor:         # shape: [T, N]
+        x = x + self.scale * self.pe[:x.size(0), :]
+        return self.dropout(x)
+
+
+def generate_square_subsequent_mask(sz: int) -> torch.tensor:
+    mask = torch.triu(torch.ones(sz, sz), 1)
+    mask = mask.masked_fill(mask == 1, float('-inf'))
+    return mask
+
+
+def make_len_mask(inp: torch.tensor) -> torch.tensor:
+    return (inp == 0).transpose(0, 1)
+
+
+class ForwardTransformer(torch.nn.Module):
+
+    def __init__(self,
+                 encoder_vocab_size: int,
+                 d_model=256,
+                 d_fft=512,
+                 layers=6,
+                 dropout=0.1,
+                 heads=4) -> None:
+        super(ForwardTransformer, self).__init__()
+
+        self.d_model = d_model
+
+        self.embedding = nn.Embedding(encoder_vocab_size, d_model)
+        self.pos_encoder = PositionalEncoding(d_model, dropout)
+
+        encoder_layer = TransformerEncoderLayer(d_model=d_model,
+                                                nhead=heads,
+                                                dim_feedforward=d_fft,
+                                                dropout=dropout,
+                                                activation='relu')
+        encoder_norm = LayerNorm(d_model)
+        self.encoder = TransformerEncoder(encoder_layer=encoder_layer,
+                                          num_layers=layers,
+                                          norm=encoder_norm)
+
+    def forward(self, x: torch.tensor) -> torch.tensor:         # shape: [N, T]
+
+        x = x.transpose(0, 1)        # shape: [T, N]
+        src_pad_mask = make_len_mask(x).to(x.device)
+        x = self.embedding(x)
+        x = self.pos_encoder(x)
+        x = self.encoder(x, src_key_padding_mask=src_pad_mask)
+        x = x.transpose(0, 1)
+        return x
 
 
 class LengthRegulator(nn.Module):
@@ -135,8 +206,10 @@ class ForwardTacotron(nn.Module):
                  energy_emb_dims: int,
                  energy_proj_dropout: float,
                  rnn_dims: int,
-                 prenet_k: int,
-                 prenet_dims: int,
+                 prenet_layers: int,
+                 prenet_heads: int,
+                 prenet_fft: int,
+                 prenet_d_model: int,
                  postnet_k: int,
                  postnet_dims: int,
                  num_highways: int,
@@ -161,12 +234,9 @@ class ForwardTacotron(nn.Module):
                                            conv_dims=energy_conv_dims,
                                            rnn_dims=energy_rnn_dims,
                                            dropout=energy_dropout)
-        self.prenet = CBHG(K=prenet_k,
-                           in_channels=embed_dims,
-                           channels=prenet_dims,
-                           proj_channels=[prenet_dims, embed_dims],
-                           num_highways=num_highways)
-        self.lstm = nn.LSTM(2 * prenet_dims + pitch_emb_dims + energy_emb_dims,
+        self.prenet = ForwardTransformer(heads=prenet_heads, encoder_vocab_size=num_chars,
+                                         d_model=prenet_d_model, d_fft=prenet_fft, layers=prenet_layers)
+        self.lstm = nn.LSTM(prenet_d_model + pitch_emb_dims + energy_emb_dims,
                             rnn_dims,
                             batch_first=True,
                             bidirectional=True)
@@ -206,8 +276,6 @@ class ForwardTacotron(nn.Module):
         pitch_hat = self.pitch_pred(x, x_lens=x_lens).transpose(1, 2)
         energy_hat = self.energy_pred(x, x_lens=x_lens).transpose(1, 2)
 
-        x = self.embedding(x)
-        x = x.transpose(1, 2)
         x = self.prenet(x)
 
         if self.pitch_emb_dims > 0:
@@ -267,8 +335,6 @@ class ForwardTacotron(nn.Module):
         energy_hat = self.energy_pred(x).transpose(1, 2)
         energy_hat = energy_function(energy_hat)
 
-        x = self.embedding(x)
-        x = x.transpose(1, 2)
         x = self.prenet(x)
 
         if self.pitch_emb_dims > 0:
