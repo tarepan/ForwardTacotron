@@ -126,11 +126,11 @@ forward_tacotron:
     energy_proj_dropout: 0
 
     prenet_conv_dims: 256
-    prenet_lstm_dims: 256
+    prenet_gru_dims: 256
     main_conv_dims: 512
-    main_lstm_dims: 512
+    main_gru_dims: 512
     postnet_conv_dims: 256
-    postnet_lstm_dims: 256
+    postnet_gru_dims: 256
     dropout: 0.1
 
   training:

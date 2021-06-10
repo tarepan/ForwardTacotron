@@ -79,14 +79,14 @@ class SeriesPredictor(nn.Module):
 
 class ConvGru(nn.Module):
 
-    def __init__(self, in_dims: int, layers=3, conv_dims=512, lstm_dims=512) -> None:
+    def __init__(self, in_dims: int, layers=3, conv_dims=512, gru_dims=512) -> None:
         super().__init__()
         self.first_conv = BatchNormConv(in_dims, conv_dims, 5, activation=torch.relu)
         self.last_conv = BatchNormConv(conv_dims, conv_dims, 5, activation=None)
         self.convs = torch.nn.ModuleList([
             BatchNormConv(conv_dims, conv_dims, 5, activation=torch.relu) for _ in range(layers - 2)
         ])
-        self.lstm = nn.GRU(conv_dims, lstm_dims, batch_first=True, bidirectional=True)
+        self.lstm = nn.GRU(conv_dims, gru_dims, batch_first=True, bidirectional=True)
 
     def forward(self, x: torch.tensor) -> torch.tensor:
         x = x.transpose(1, 2)
@@ -135,11 +135,11 @@ class ForwardTacotron(nn.Module):
                  energy_emb_dims: int,
                  energy_proj_dropout: float,
                  prenet_conv_dims: int,
-                 prenet_lstm_dims: int,
+                 prenet_gru_dims: int,
                  main_conv_dims: int,
-                 main_lstm_dims: int,
+                 main_gru_dims: int,
                  postnet_conv_dims: int,
-                 postnet_lstm_dims: int,
+                 postnet_gru_dims: int,
                  dropout: float,
                  n_mels: int):
         super().__init__()
@@ -162,16 +162,16 @@ class ForwardTacotron(nn.Module):
                                            dropout=energy_dropout)
         self.prenet = ConvGru(in_dims=embed_dims,
                               conv_dims=prenet_conv_dims,
-                              lstm_dims=prenet_lstm_dims)
-        self.main_net = ConvGru(in_dims=2 * prenet_lstm_dims + pitch_emb_dims + energy_emb_dims,
+                              gru_dims=prenet_gru_dims)
+        self.main_net = ConvGru(in_dims=2 * prenet_gru_dims + pitch_emb_dims + energy_emb_dims,
                                 conv_dims=main_conv_dims,
-                                lstm_dims=main_lstm_dims)
-        self.lin = torch.nn.Linear(2 * main_lstm_dims, n_mels)
+                                gru_dims=main_gru_dims)
+        self.lin = torch.nn.Linear(2 * main_gru_dims, n_mels)
         self.postnet = ConvGru(in_dims=n_mels,
                                conv_dims=postnet_conv_dims,
-                               lstm_dims=postnet_lstm_dims)
+                               gru_dims=postnet_gru_dims)
         self.dropout = dropout
-        self.post_proj = nn.Linear(2*postnet_lstm_dims, n_mels, bias=False)
+        self.post_proj = nn.Linear(2*postnet_gru_dims, n_mels, bias=False)
         self.pitch_emb_dims = pitch_emb_dims
         self.energy_emb_dims = energy_emb_dims
         self.register_buffer('step', torch.zeros(1, dtype=torch.long))
