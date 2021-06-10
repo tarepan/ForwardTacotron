@@ -86,7 +86,7 @@ class ConvLstm(nn.Module):
         self.convs = torch.nn.ModuleList([
             BatchNormConv(conv_dims, conv_dims, 5, activation=torch.relu) for _ in range(layers - 2)
         ])
-        self.lstm = nn.LSTM(conv_dims, lstm_dims, batch_first=True, bidirectional=True)
+        self.lstm = nn.GRU(conv_dims, lstm_dims, batch_first=True, bidirectional=True)
 
     def forward(self, x: torch.tensor) -> torch.tensor:
         x = x.transpose(1, 2)
@@ -267,6 +267,7 @@ class ForwardTacotron(nn.Module):
 
         x_post = self.postnet(x)
         x_post = self.post_proj(x_post)
+        x_post = x_post + x
 
         x = x.transpose(1, 2)
         x_post = x_post.transpose(1, 2)
