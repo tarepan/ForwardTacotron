@@ -5,24 +5,23 @@ import torch.nn.functional as F
 from pathlib import Path
 from typing import Union, Dict, Any, Tuple
 
+from torch.nn import GRU
+
 from models.common_layers import CBHG
 from utils.text.symbols import phonemes
 
 
 class Encoder(nn.Module):
-    def __init__(self, embed_dims, num_chars, cbhg_channels, K, num_highways, dropout):
+    def __init__(self, embed_dims, num_chars, cbhg_channels, K, num_highways, dropout, prenet_dims=128):
         super().__init__()
         self.embedding = nn.Embedding(num_chars, embed_dims)
         self.pre_net = PreNet(embed_dims)
-        self.cbhg = CBHG(K=K, in_channels=cbhg_channels, channels=cbhg_channels,
-                         proj_channels=[cbhg_channels, cbhg_channels],
-                         num_highways=num_highways)
+        self.gru = GRU(128, cbhg_channels, bidirectional=True, batch_first=True)
 
     def forward(self, x):
         x = self.embedding(x)
         x = self.pre_net(x)
-        x.transpose_(1, 2)
-        x = self.cbhg(x)
+        x, _ = self.gru(x)
         return x
 
 
