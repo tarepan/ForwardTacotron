@@ -125,7 +125,6 @@ forward_tacotron:
     energy_emb_dims: 32           # embedding dimension of energy, set to 0 if you don't want energy conditioning
     energy_proj_dropout: 0
 
-    prenet_conv_dims: 256
     prenet_gru_dims: 256
     main_conv_dims: 512
     main_gru_dims: 512

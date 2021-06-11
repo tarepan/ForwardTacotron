@@ -134,7 +134,6 @@ class ForwardTacotron(nn.Module):
                  energy_dropout: float,
                  energy_emb_dims: int,
                  energy_proj_dropout: float,
-                 prenet_conv_dims: int,
                  prenet_gru_dims: int,
                  main_conv_dims: int,
                  main_gru_dims: int,
@@ -160,9 +159,7 @@ class ForwardTacotron(nn.Module):
                                            conv_dims=energy_conv_dims,
                                            rnn_dims=energy_rnn_dims,
                                            dropout=energy_dropout)
-        self.prenet = ConvGru(in_dims=embed_dims,
-                              conv_dims=prenet_conv_dims,
-                              gru_dims=prenet_gru_dims)
+        self.prenet = nn.GRU(embed_dims, prenet_gru_dims, batch_first=True, bidirectional=True)
         self.main_net = ConvGru(in_dims=2 * prenet_gru_dims + pitch_emb_dims + energy_emb_dims,
                                 conv_dims=main_conv_dims,
                                 gru_dims=main_gru_dims)
@@ -219,6 +216,7 @@ class ForwardTacotron(nn.Module):
 
         x_post = self.postnet(x)
         x_post = self.post_proj(x_post)
+        x_post = x + x_post
 
         x = x.transpose(1, 2)
         x_post = x_post.transpose(1, 2)
@@ -267,6 +265,7 @@ class ForwardTacotron(nn.Module):
 
         x_post = self.postnet(x)
         x_post = self.post_proj(x_post)
+        x_post = x + x_post
 
         x = x.transpose(1, 2)
         x_post = x_post.transpose(1, 2)
