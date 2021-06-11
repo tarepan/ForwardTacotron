@@ -198,7 +198,7 @@ class ForwardTacotron(nn.Module):
         energy_hat = self.energy_pred(x, x_lens=x_lens).transpose(1, 2)
 
         x = self.embedding(x)
-        x = self.prenet(x)
+        x, _ = self.prenet(x)
 
         if self.pitch_emb_dims > 0:
             pitch_proj = self.pitch_proj(pitch)
@@ -249,7 +249,7 @@ class ForwardTacotron(nn.Module):
         energy_hat = energy_function(energy_hat)
 
         x = self.embedding(x)
-        x = self.prenet(x)
+        x, _ = self.prenet(x)
 
         if self.pitch_emb_dims > 0:
             pitch_hat_proj = self.pitch_proj(pitch_hat).transpose(1, 2)
