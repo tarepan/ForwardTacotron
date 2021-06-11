@@ -262,10 +262,10 @@ class ForwardTacotron(nn.Module):
                             bidirectional=True)
         self.lin = torch.nn.Linear(2 * rnn_dims, n_mels)
         self.register_buffer('step', torch.zeros(1, dtype=torch.long))
-        self.postnet = ConvGru(in_dims=2 * rnn_dims, layers=postnet_conv_layers,
+        self.postnet = ConvGru(in_dims=n_mels, layers=postnet_conv_layers,
                                conv_dims=postnet_conv_dims, rnn_dims=postnet_rnn_dims)
         self.dropout = dropout
-        self.post_proj = nn.Linear(2 * postnet_rnn_dims, n_mels, bias=False)
+        self.post_proj = nn.Linear(2 * postnet_conv_dims, n_mels, bias=False)
         self.pitch_emb_dims = pitch_emb_dims
         self.energy_emb_dims = energy_emb_dims
         if pitch_emb_dims > 0:
@@ -321,7 +321,6 @@ class ForwardTacotron(nn.Module):
 
         x_post = self.postnet(x)
         x_post = self.post_proj(x_post)
-        x_post = x_post.transpose(1, 2)
 
         x_post = self.pad(x_post, mel.size(2))
         x = self.pad(x, mel.size(2))
@@ -370,7 +369,6 @@ class ForwardTacotron(nn.Module):
 
         x_post = self.postnet(x)
         x_post = self.post_proj(x_post)
-        x_post = x_post.transpose(1, 2)
 
         x, x_post, dur = x.squeeze(), x_post.squeeze(), dur.squeeze()
         x = x.cpu().data.numpy()
