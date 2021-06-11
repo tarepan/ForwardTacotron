@@ -129,6 +129,7 @@ forward_tacotron:
     energy_proj_dropout: 0.
 
     rnn_dims: 512
+    
     postnet_conv_layers: 3
     postnet_conv_dims: 256
     postnet_rnn_dims: 256
