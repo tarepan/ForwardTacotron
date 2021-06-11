@@ -188,10 +188,10 @@ class ConvGru(nn.Module):
 
     def __init__(self, in_dims: int, layers=3, conv_dims=512, rnn_dims=512) -> None:
         super().__init__()
-        self.first_conv = BatchNormConv(in_dims, conv_dims, 5, activation=torch.relu)
+        self.first_conv = BatchNormConv(in_dims, conv_dims, 5, activation=None)
         self.last_conv = BatchNormConv(conv_dims, conv_dims, 5, activation=None)
         self.convs = torch.nn.ModuleList([
-            BatchNormConv(conv_dims, conv_dims, 5, activation=torch.relu) for _ in range(layers - 2)
+            BatchNormConv(conv_dims, conv_dims, 5, activation=None) for _ in range(layers - 2)
         ])
         self.gru = nn.GRU(conv_dims, rnn_dims, batch_first=True, bidirectional=True)
 
@@ -321,6 +321,7 @@ class ForwardTacotron(nn.Module):
 
         x_post = self.postnet(x)
         x_post = self.post_proj(x_post)
+        x_post = x + x_post
 
         x = x.transpose(1, 2)
         x_post = x_post.transpose(1, 2)
@@ -372,6 +373,7 @@ class ForwardTacotron(nn.Module):
 
         x_post = self.postnet(x)
         x_post = self.post_proj(x_post)
+        x_post = x + x_post
 
         x = x.transpose(1, 2)
         x_post = x_post.transpose(1, 2)
