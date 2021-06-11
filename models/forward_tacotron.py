@@ -6,10 +6,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from dp.utils.io import read_config
 from torch.nn import Embedding, TransformerEncoderLayer, LayerNorm, TransformerEncoder
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-
-from models.common_layers import CBHG
 from utils.text.symbols import phonemes
 
 MEL_PAD_VALUE = -11.5129
@@ -186,6 +185,28 @@ class BatchNormConv(nn.Module):
         return x
 
 
+class ConvGru(nn.Module):
+
+    def __init__(self, in_dims: int, layers=3, conv_dims=512, rnn_dims=512) -> None:
+        super().__init__()
+        self.first_conv = BatchNormConv(in_dims, conv_dims, 5, activation=torch.relu)
+        self.last_conv = BatchNormConv(conv_dims, conv_dims, 5, activation=None)
+        self.convs = torch.nn.ModuleList([
+            BatchNormConv(conv_dims, conv_dims, 5, activation=torch.relu) for _ in range(layers - 2)
+        ])
+        self.lstm = nn.GRU(conv_dims, rnn_dims, batch_first=True, bidirectional=True)
+
+    def forward(self, x: torch.tensor) -> torch.tensor:
+        x = x.transpose(1, 2)
+        x = self.first_conv(x)
+        for conv in self.convs:
+            x = conv(x)
+        x = self.last_conv(x)
+        x = x.transpose(1, 2)
+        x, _ = self.lstm(x)
+        return x
+
+
 class ForwardTacotron(nn.Module):
 
     def __init__(self,
@@ -210,9 +231,9 @@ class ForwardTacotron(nn.Module):
                  prenet_heads: int,
                  prenet_fft: int,
                  prenet_d_model: int,
-                 postnet_k: int,
-                 postnet_dims: int,
-                 num_highways: int,
+                 postnet_conv_layers: int,
+                 postnet_conv_dims: int,
+                 postnet_rnn_dims: int,
                  dropout: float,
                  n_mels: int):
         super().__init__()
@@ -242,13 +263,10 @@ class ForwardTacotron(nn.Module):
                             bidirectional=True)
         self.lin = torch.nn.Linear(2 * rnn_dims, n_mels)
         self.register_buffer('step', torch.zeros(1, dtype=torch.long))
-        self.postnet = CBHG(K=postnet_k,
-                            in_channels=n_mels,
-                            channels=postnet_dims,
-                            proj_channels=[postnet_dims, n_mels],
-                            num_highways=num_highways)
+        self.postnet = ConvGru(in_dims=2 * rnn_dims, layers=postnet_conv_layers,
+                               conv_dims=postnet_conv_dims, rnn_dims=postnet_rnn_dims)
         self.dropout = dropout
-        self.post_proj = nn.Linear(2 * postnet_dims, n_mels, bias=False)
+        self.post_proj = nn.Linear(2 * postnet_rnn_dims, n_mels, bias=False)
         self.pitch_emb_dims = pitch_emb_dims
         self.energy_emb_dims = energy_emb_dims
         if pitch_emb_dims > 0:
@@ -301,7 +319,6 @@ class ForwardTacotron(nn.Module):
                       p=self.dropout,
                       training=self.training)
         x = self.lin(x)
-        x = x.transpose(1, 2)
 
         x_post = self.postnet(x)
         x_post = self.post_proj(x_post)
@@ -318,7 +335,6 @@ class ForwardTacotron(nn.Module):
                  alpha=1.0,
                  pitch_function: Callable[[torch.tensor], torch.tensor] = lambda x: x,
                  energy_function: Callable[[torch.tensor], torch.tensor] = lambda x: x,
-
                  ) -> Dict[str, np.array]:
         self.eval()
 
@@ -352,7 +368,6 @@ class ForwardTacotron(nn.Module):
                       p=self.dropout,
                       training=self.training)
         x = self.lin(x)
-        x = x.transpose(1, 2)
 
         x_post = self.postnet(x)
         x_post = self.post_proj(x_post)
@@ -387,3 +402,9 @@ class ForwardTacotron(nn.Module):
         model = ForwardTacotron.from_config(checkpoint['config'])
         model.load_state_dict(checkpoint['model'])
         return model
+
+if __name__ == '__main__':
+    config = read_config('../config.yaml')
+    model = ForwardTacotron.from_config(config)
+    params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f'params: {params}')

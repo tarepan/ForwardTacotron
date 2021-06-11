@@ -128,10 +128,10 @@ forward_tacotron:
     energy_emb_dims: 32           # embedding dimension of energy, set to 0 if you don't want energy conditioning
     energy_proj_dropout: 0.
 
-    postnet_dims: 256
-    postnet_k: 8
     rnn_dims: 512
-    num_highways: 4
+    postnet_conv_layers: 3
+    postnet_conv_dims: 256
+    postnet_rnn_dims: 256
     dropout: 0.1
 
   training:

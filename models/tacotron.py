@@ -354,3 +354,4 @@ class Tacotron(nn.Module):
         model = Tacotron.from_config(checkpoint['config'])
         model.load_state_dict(checkpoint['model'])
         return model
+
