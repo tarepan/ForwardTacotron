@@ -79,23 +79,26 @@ class SeriesPredictor(nn.Module):
 
 class ConvGru(nn.Module):
 
-    def __init__(self, in_dims: int, layers=3, conv_dims=512, gru_dims=512) -> None:
+    def __init__(self, in_dims: int, conv_layers=3, conv_dims=512, gru_dims=512, kernel_size=5, dropout=0.) -> None:
         super().__init__()
-        self.first_conv = BatchNormConv(in_dims, conv_dims, 5, activation=torch.relu)
-        self.last_conv = BatchNormConv(conv_dims, conv_dims, 5, activation=None)
+        self.first_conv = BatchNormConv(in_dims, conv_dims, kernel_size, activation=torch.relu)
+        self.last_conv = BatchNormConv(conv_dims, conv_dims, kernel_size, activation=None)
         self.convs = torch.nn.ModuleList([
-            BatchNormConv(conv_dims, conv_dims, 5, activation=torch.relu) for _ in range(layers - 2)
+            BatchNormConv(conv_dims, conv_dims, kernel_size, activation=torch.relu) for _ in range(conv_layers - 2)
         ])
-        self.lstm = nn.GRU(conv_dims, gru_dims, batch_first=True, bidirectional=True)
+        self.gru = nn.GRU(conv_dims, gru_dims, batch_first=True, bidirectional=True)
+        self.dropout = dropout
 
     def forward(self, x: torch.tensor) -> torch.tensor:
         x = x.transpose(1, 2)
         x = self.first_conv(x)
+        x = F.dropout(x, self.dropout, training=self.training)
         for conv in self.convs:
             x = conv(x)
+            x = F.dropout(x, self.dropout, training=self.training)
         x = self.last_conv(x)
         x = x.transpose(1, 2)
-        x, _ = self.lstm(x)
+        x, _ = self.gru(x)
         return x
 
 
@@ -134,7 +137,11 @@ class ForwardTacotron(nn.Module):
                  energy_dropout: float,
                  energy_emb_dims: int,
                  energy_proj_dropout: float,
+                 prenet_kernel_size: int,
+                 prenet_conv_layers: int,
+                 prenet_conv_dims: int,
                  prenet_gru_dims: int,
+                 prenet_dropout: int,
                  main_conv_dims: int,
                  main_gru_dims: int,
                  postnet_conv_dims: int,
@@ -159,7 +166,9 @@ class ForwardTacotron(nn.Module):
                                            conv_dims=energy_conv_dims,
                                            rnn_dims=energy_rnn_dims,
                                            dropout=energy_dropout)
-        self.prenet = nn.GRU(embed_dims, prenet_gru_dims, batch_first=True, bidirectional=True)
+        self.prenet = ConvGru(in_dims=embed_dims, gru_dims=prenet_gru_dims,
+                              conv_layers=prenet_conv_layers, kernel_size=prenet_kernel_size,
+                              conv_dims=prenet_conv_dims, dropout=prenet_dropout)
         self.main_net = ConvGru(in_dims=2 * prenet_gru_dims + pitch_emb_dims + energy_emb_dims,
                                 conv_dims=main_conv_dims,
                                 gru_dims=main_gru_dims)
@@ -198,7 +207,7 @@ class ForwardTacotron(nn.Module):
         energy_hat = self.energy_pred(x, x_lens=x_lens).transpose(1, 2)
 
         x = self.embedding(x)
-        x, _ = self.prenet(x)
+        x = self.prenet(x)
 
         if self.pitch_emb_dims > 0:
             pitch_proj = self.pitch_proj(pitch)
@@ -249,7 +258,7 @@ class ForwardTacotron(nn.Module):
         energy_hat = energy_function(energy_hat)
 
         x = self.embedding(x)
-        x, _ = self.prenet(x)
+        x = self.prenet(x)
 
         if self.pitch_emb_dims > 0:
             pitch_hat_proj = self.pitch_proj(pitch_hat).transpose(1, 2)
