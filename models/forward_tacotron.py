@@ -73,7 +73,8 @@ class ConvGru(nn.Module):
                  conv_dims=512,
                  gru_dims=512,
                  kernel_size=5,
-                 dropout=0.) -> None:
+                 dropout=0.,
+                 padding_value=0.) -> None:
         super().__init__()
         self.first_conv = BatchNormConv(in_dims, conv_dims, kernel_size, activation=torch.relu)
         self.last_conv = BatchNormConv(conv_dims, conv_dims, kernel_size, activation=None)
@@ -82,6 +83,7 @@ class ConvGru(nn.Module):
         ])
         self.gru = nn.GRU(conv_dims, gru_dims, batch_first=True, bidirectional=True)
         self.dropout = dropout
+        self.padding_value = padding_value
 
     def forward(self,
                 x: torch.tensor,
@@ -99,7 +101,7 @@ class ConvGru(nn.Module):
                                      enforce_sorted=False)
         x, _ = self.gru(x)
         if x_lens is not None:
-            x, _ = pad_packed_sequence(x, padding_value=0.0, batch_first=True)
+            x, _ = pad_packed_sequence(x, padding_value=self.padding_value, batch_first=True)
         return x
 
 
@@ -188,10 +190,10 @@ class ForwardTacotron(nn.Module):
         self.main_net = ConvGru(in_dims=2 * prenet_gru_dims + pitch_emb_dims + energy_emb_dims,
                                 gru_dims=main_gru_dims,
                                 conv_layers=main_conv_layers, kernel_size=main_kernel_size,
-                                conv_dims=main_conv_dims, dropout=main_dropout)
+                                conv_dims=main_conv_dims, dropout=main_dropout, padding_value=MEL_PAD_VALUE)
         self.postnet = ConvGru(in_dims=n_mels, gru_dims=postnet_gru_dims,
                                conv_layers=postnet_conv_layers, kernel_size=postnet_kernel_size,
-                               conv_dims=postnet_conv_dims, dropout=postnet_dropout)
+                               conv_dims=postnet_conv_dims, dropout=postnet_dropout, padding_value=MEL_PAD_VALUE)
 
         self.lin = torch.nn.Linear(2 * main_gru_dims, n_mels)
         self.post_proj = nn.Linear(2*postnet_gru_dims, n_mels, bias=False)
@@ -224,7 +226,7 @@ class ForwardTacotron(nn.Module):
         energy_hat = self.energy_pred(x, x_lens=x_lens).transpose(1, 2)
 
         x = self.embedding(x)
-        x = self.prenet(x)
+        x = self.prenet(x, x_lens=x_lens)
 
         if self.pitch_emb_dims > 0:
             pitch_proj = self.pitch_proj(pitch)
@@ -237,10 +239,10 @@ class ForwardTacotron(nn.Module):
             x = torch.cat([x, energy_proj], dim=-1)
 
         x = self.lr(x, dur)
-        x = self.main_net(x)
+        x = self.main_net(x, x_lens=x_lens)
         x = self.lin(x)
 
-        x_post = self.postnet(x)
+        x_post = self.postnet(x, x_lens=x_lens)
         x_post = self.post_proj(x_post)
         x_post = x + x_post
 
