@@ -127,6 +127,7 @@ class ForwardTacotron(nn.Module):
                  series_conv_layers: int,
                  series_kernel_size: int,
                  num_chars: int,
+
                  durpred_conv_dims: int,
                  durpred_rnn_dims: int,
                  durpred_dropout: float,
@@ -146,19 +147,16 @@ class ForwardTacotron(nn.Module):
                  prenet_conv_dims: int,
                  prenet_gru_dims: int,
                  prenet_dropout: int,
-
                  main_kernel_size: int,
                  main_conv_layers: int,
                  main_conv_dims: int,
                  main_gru_dims: int,
                  main_dropout: int,
-
                  postnet_kernel_size: int,
                  postnet_conv_layers: int,
                  postnet_conv_dims: int,
                  postnet_gru_dims: int,
                  postnet_dropout: int,
-
                  n_mels: int):
         super().__init__()
         self.embedding = nn.Embedding(num_chars, embed_dims)
