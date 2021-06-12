@@ -185,7 +185,8 @@ class ForwardTacotron(nn.Module):
         self.prenet = ConvGru(in_dims=embed_dims, gru_dims=prenet_gru_dims,
                               conv_layers=prenet_conv_layers, kernel_size=prenet_kernel_size,
                               conv_dims=prenet_conv_dims, dropout=prenet_dropout)
-        self.main_net = ConvGru(in_dims=2 * prenet_gru_dims + pitch_emb_dims + energy_emb_dims, gru_dims=main_gru_dims,
+        self.main_net = ConvGru(in_dims=2 * prenet_gru_dims + pitch_emb_dims + energy_emb_dims,
+                                gru_dims=main_gru_dims,
                                 conv_layers=main_conv_layers, kernel_size=main_kernel_size,
                                 conv_dims=main_conv_dims, dropout=main_dropout)
         self.postnet = ConvGru(in_dims=n_mels, gru_dims=postnet_gru_dims,
@@ -236,10 +237,10 @@ class ForwardTacotron(nn.Module):
             x = torch.cat([x, energy_proj], dim=-1)
 
         x = self.lr(x, dur)
-        x = self.main_net(x, x_lens=x_lens)
+        x = self.main_net(x)
         x = self.lin(x)
 
-        x_post = self.postnet(x, x_lens=x_lens)
+        x_post = self.postnet(x)
         x_post = self.post_proj(x_post)
         x_post = x + x_post
 
