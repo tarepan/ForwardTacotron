@@ -80,14 +80,15 @@ tacotron:
 
   model:
     embed_dims: 256                # embedding dimension for the graphemes/phoneme inputs
-    encoder_dims: 128
+    encoder_gru_dims: 128
+    encoder_conv_layers: 2
+    encoder_kernel_size: 1
+    encoder_dropout: 0.1
     decoder_dims: 256
     postnet_dims: 128
-    encoder_k: 16
     lstm_dims: 512
     postnet_k: 8
     num_highways: 4
-    dropout: 0.5
     stop_threshold: -11           # Value below which audio generation ends.
 
   training:
