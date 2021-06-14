@@ -168,10 +168,10 @@ class ForwardTacotron(nn.Module):
                                            conv_dims=energy_conv_dims,
                                            rnn_dims=energy_rnn_dims,
                                            dropout=energy_dropout)
-        self.prenet = ConvGru(in_dims=embed_dims, gru_dims=prenet_gru_dims,
+        self.prenet = ConvGru(in_dims=embed_dims + pitch_emb_dims + energy_emb_dims, gru_dims=prenet_gru_dims,
                               conv_layers=prenet_conv_layers, kernel_size=prenet_kernel_size,
                               conv_dims=prenet_conv_dims, dropout=prenet_dropout)
-        self.main_net = ConvGru(in_dims=2 * prenet_gru_dims + pitch_emb_dims + energy_emb_dims,
+        self.main_net = ConvGru(in_dims=2 * prenet_gru_dims,
                                 gru_dims=main_gru_dims,
                                 conv_layers=main_conv_layers, kernel_size=main_kernel_size,
                                 conv_dims=main_conv_dims, dropout=main_dropout)
@@ -211,7 +211,6 @@ class ForwardTacotron(nn.Module):
 
         x = self.lr(x, dur)
         x = self.embedding(x)
-        x = self.prenet(x)
 
         if self.pitch_emb_dims > 0:
             pitch_proj = self.pitch_proj(pitch)
@@ -225,6 +224,7 @@ class ForwardTacotron(nn.Module):
             energy_proj = self.lr(energy_proj, dur)
             x = torch.cat([x, energy_proj], dim=-1)
 
+        x = self.prenet(x)
         x = self.main_net(x)
         x = self.lin(x)
 
@@ -264,7 +264,6 @@ class ForwardTacotron(nn.Module):
 
             x = self.lr(x, dur)
             x = self.embedding(x)
-            x = self.prenet(x)
 
             if self.pitch_emb_dims > 0:
                 pitch_hat_proj = self.pitch_proj(pitch_hat).transpose(1, 2)
@@ -276,6 +275,7 @@ class ForwardTacotron(nn.Module):
                 energy_hat_proj = self.lr(energy_hat_proj, dur)
                 x = torch.cat([x, energy_hat_proj], dim=-1)
 
+            x = self.prenet(x)
             x = self.main_net(x)
             x = self.lin(x)
 
