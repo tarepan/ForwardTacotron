@@ -198,9 +198,9 @@ class ForwardTacotron(nn.Module):
         x = batch['x']
         mel = batch['mel']
         dur = batch['dur']
-        x_lens = batch['x_len'].cpu()
-        pitch = batch['pitch'].unsqueeze(1)
-        energy = batch['energy'].unsqueeze(1)
+        x_lens = batch['x_len'].detach().cpu()
+        pitch = batch['pitch'].unsqueeze(1).detach()
+        energy = batch['energy'].unsqueeze(1).detach()
 
         if self.training:
             self.step += 1
@@ -245,51 +245,51 @@ class ForwardTacotron(nn.Module):
                  alpha=1.0,
                  pitch_function: Callable[[torch.tensor], torch.tensor] = lambda x: x,
                  energy_function: Callable[[torch.tensor], torch.tensor] = lambda x: x,
-
                  ) -> Dict[str, np.array]:
         self.eval()
 
-        dur = self.dur_pred(x, alpha=alpha)
-        dur = dur.squeeze(2)
+        with torch.no_grad():
+            dur = self.dur_pred(x, alpha=alpha)
+            dur = dur.squeeze(2)
 
-        # Fixing breaking synth of silent texts
-        if torch.sum(dur) <= 0:
-            dur = torch.full(x.size(), fill_value=2, device=x.device)
+            # Fixing breaking synth of silent texts
+            if torch.sum(dur) <= 0:
+                dur = torch.full(x.size(), fill_value=2, device=x.device)
 
-        pitch_hat = self.pitch_pred(x).transpose(1, 2)
-        pitch_hat = pitch_function(pitch_hat)
+            pitch_hat = self.pitch_pred(x).transpose(1, 2)
+            pitch_hat = pitch_function(pitch_hat)
 
-        energy_hat = self.energy_pred(x).transpose(1, 2)
-        energy_hat = energy_function(energy_hat)
+            energy_hat = self.energy_pred(x).transpose(1, 2)
+            energy_hat = energy_function(energy_hat)
 
-        x = self.lr(x, dur)
-        x = self.embedding(x)
-        x = self.prenet(x)
+            x = self.lr(x, dur)
+            x = self.embedding(x)
+            x = self.prenet(x)
 
-        if self.pitch_emb_dims > 0:
-            pitch_hat_proj = self.pitch_proj(pitch_hat).transpose(1, 2)
-            pitch_hat_proj = self.lr(pitch_hat_proj, dur)
-            x = torch.cat([x, pitch_hat_proj], dim=-1)
+            if self.pitch_emb_dims > 0:
+                pitch_hat_proj = self.pitch_proj(pitch_hat).transpose(1, 2)
+                pitch_hat_proj = self.lr(pitch_hat_proj, dur)
+                x = torch.cat([x, pitch_hat_proj], dim=-1)
 
-        if self.energy_emb_dims > 0:
-            energy_hat_proj = self.energy_proj(energy_hat).transpose(1, 2)
-            energy_hat_proj = self.lr(energy_hat_proj, dur)
-            x = torch.cat([x, energy_hat_proj], dim=-1)
+            if self.energy_emb_dims > 0:
+                energy_hat_proj = self.energy_proj(energy_hat).transpose(1, 2)
+                energy_hat_proj = self.lr(energy_hat_proj, dur)
+                x = torch.cat([x, energy_hat_proj], dim=-1)
 
-        x = self.main_net(x)
-        x = self.lin(x)
+            x = self.main_net(x)
+            x = self.lin(x)
 
-        x_post = self.postnet(x)
-        x_post = self.post_proj(x_post)
-        x_post = x + x_post
+            x_post = self.postnet(x)
+            x_post = self.post_proj(x_post)
+            x_post = x + x_post
 
-        x = x.transpose(1, 2)
-        x_post = x_post.transpose(1, 2)
+            x = x.transpose(1, 2)
+            x_post = x_post.transpose(1, 2)
 
-        x, x_post, dur = x.squeeze(), x_post.squeeze(), dur.squeeze()
-        x = x.cpu().data.numpy()
-        x_post = x_post.cpu().data.numpy()
-        dur = dur.cpu().data.numpy()
+            x, x_post, dur = x.squeeze(), x_post.squeeze(), dur.squeeze()
+            x = x.cpu().data.numpy()
+            x_post = x_post.cpu().data.numpy()
+            dur = dur.cpu().data.numpy()
 
         return {'mel': x, 'mel_post': x_post, 'dur': dur,
                 'pitch': pitch_hat, 'energy': energy_hat}
