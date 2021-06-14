@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Embedding, BatchNorm1d
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
 
 from utils.text.symbols import phonemes
 
@@ -19,28 +19,12 @@ class LengthRegulator(nn.Module):
         super().__init__()
 
     def forward(self, x, dur):
-        return self.expand(x, dur)
-
-    @staticmethod
-    def build_index(duration: torch.tensor, x: torch.tensor) -> torch.tensor:
-        duration[duration < 0] = 0
-        tot_duration = duration.cumsum(1).detach().cpu().numpy().astype('int')
-        max_duration = int(tot_duration.max().item())
-        index = np.zeros([x.shape[0], max_duration, x.shape[2]], dtype='long')
-
-        for i in range(tot_duration.shape[0]):
-            pos = 0
-            for j in range(tot_duration.shape[1]):
-                pos1 = tot_duration[i, j]
-                index[i, pos:pos1, :] = j
-                pos = pos1
-            index[i, pos:, :] = j
-        return torch.LongTensor(index).to(duration.device)
-
-    def expand(self, x: torch.tensor, dur: torch.tensor) -> torch.tensor:
-        idx = self.build_index(dur, x)
-        y = torch.gather(x, 1, idx)
-        return y
+        x_expanded = []
+        for i in range(x.size(0)):
+            x_exp = torch.repeat_interleave(x[i], (dur[i] + 0.5).long(), dim=0)
+            x_expanded.append(x_exp)
+        x_expanded = pad_sequence(x_expanded, padding_value=0, batch_first=True)
+        return x_expanded
 
 
 class SeriesPredictor(nn.Module):
@@ -225,20 +209,22 @@ class ForwardTacotron(nn.Module):
         pitch_hat = self.pitch_pred(x, x_lens=x_lens).transpose(1, 2)
         energy_hat = self.energy_pred(x, x_lens=x_lens).transpose(1, 2)
 
+        x = self.lr(x, dur)
         x = self.embedding(x)
         x = self.prenet(x)
 
         if self.pitch_emb_dims > 0:
             pitch_proj = self.pitch_proj(pitch)
             pitch_proj = pitch_proj.transpose(1, 2)
+            pitch_proj = self.lr(pitch_proj, dur)
             x = torch.cat([x, pitch_proj], dim=-1)
 
         if self.energy_emb_dims > 0:
             energy_proj = self.energy_proj(energy)
             energy_proj = energy_proj.transpose(1, 2)
+            energy_proj = self.lr(energy_proj, dur)
             x = torch.cat([x, energy_proj], dim=-1)
 
-        x = self.lr(x, dur)
         x = self.main_net(x)
         x = self.lin(x)
 
@@ -276,18 +262,20 @@ class ForwardTacotron(nn.Module):
         energy_hat = self.energy_pred(x).transpose(1, 2)
         energy_hat = energy_function(energy_hat)
 
+        x = self.lr(x, dur)
         x = self.embedding(x)
         x = self.prenet(x)
 
         if self.pitch_emb_dims > 0:
             pitch_hat_proj = self.pitch_proj(pitch_hat).transpose(1, 2)
+            pitch_hat_proj = self.lr(pitch_hat_proj, dur)
             x = torch.cat([x, pitch_hat_proj], dim=-1)
 
         if self.energy_emb_dims > 0:
             energy_hat_proj = self.energy_proj(energy_hat).transpose(1, 2)
+            energy_hat_proj = self.lr(energy_hat_proj, dur)
             x = torch.cat([x, energy_hat_proj], dim=-1)
 
-        x = self.lr(x, dur)
         x = self.main_net(x)
         x = self.lin(x)
 
