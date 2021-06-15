@@ -5,31 +5,24 @@ import torch.nn.functional as F
 from pathlib import Path
 from typing import Union, Dict, Any, Tuple
 
-from torch.nn import GRU
-
 from models.common_layers import CBHG
-from models.forward_tacotron import ConvGru
 from utils.text.symbols import phonemes
 
 
 class Encoder(nn.Module):
-
-    def __init__(self,
-                 embed_dims: int,
-                 num_chars: int,
-                 gru_dims: int,
-                 conv_layers: int,
-                 kernel_size: int,
-                 dropout=0):
+    def __init__(self, embed_dims, num_chars, cbhg_channels, K, num_highways, dropout):
         super().__init__()
         self.embedding = nn.Embedding(num_chars, embed_dims)
-        self.conv_gru = ConvGru(in_dims=embed_dims, gru_dims=gru_dims,
-                                conv_layers=conv_layers, kernel_size=kernel_size,
-                                dropout=dropout)
+        self.pre_net = PreNet(embed_dims)
+        self.cbhg = CBHG(K=K, in_channels=cbhg_channels, channels=cbhg_channels,
+                         proj_channels=[cbhg_channels, cbhg_channels],
+                         num_highways=num_highways)
 
     def forward(self, x):
         x = self.embedding(x)
-        x = self.conv_gru(x)
+        x = self.pre_net(x)
+        x.transpose_(1, 2)
+        x = self.cbhg(x)
         return x
 
 
@@ -186,25 +179,23 @@ class Tacotron(nn.Module):
     def __init__(self,
                  embed_dims: int,
                  num_chars: int,
-                 encoder_gru_dims: int,
-                 encoder_conv_layers: int,
-                 encoder_kernel_size: int,
-                 encoder_dropout: int,
+                 encoder_dims: int,
                  decoder_dims: int,
                  n_mels: int,
                  postnet_dims: int,
+                 encoder_k: int,
                  lstm_dims: int,
                  postnet_k: int,
                  num_highways: int,
+                 dropout: float,
                  stop_threshold: float) -> None:
         super().__init__()
         self.n_mels = n_mels
         self.lstm_dims = lstm_dims
         self.decoder_dims = decoder_dims
-        self.encoder = Encoder(embed_dims=embed_dims, num_chars=num_chars, gru_dims=encoder_gru_dims,
-                               conv_layers=encoder_conv_layers, kernel_size=encoder_kernel_size,
-                               dropout=encoder_dropout)
-        self.encoder_proj = nn.Linear(2 * encoder_gru_dims, decoder_dims, bias=False)
+        self.encoder = Encoder(embed_dims, num_chars, encoder_dims,
+                               encoder_k, num_highways, dropout)
+        self.encoder_proj = nn.Linear(decoder_dims, decoder_dims, bias=False)
         self.decoder = Decoder(n_mels, decoder_dims, lstm_dims)
         self.postnet = CBHG(postnet_k, n_mels, postnet_dims, [256, 80], num_highways)
         self.post_proj = nn.Linear(postnet_dims * 2, n_mels, bias=False)
