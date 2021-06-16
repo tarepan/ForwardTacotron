@@ -171,7 +171,7 @@ class ForwardTacotron(nn.Module):
         self.prenet = ConvGru(in_dims=embed_dims, gru_dims=prenet_gru_dims,
                               conv_layers=prenet_conv_layers, kernel_size=prenet_kernel_size,
                               conv_dims=prenet_conv_dims, dropout=prenet_dropout)
-        self.main_net = ConvGru(in_dims=2 * prenet_gru_dims + pitch_emb_dims + energy_emb_dims,
+        self.main_net = ConvGru(in_dims=2 * prenet_gru_dims,
                                 gru_dims=main_gru_dims,
                                 conv_layers=main_conv_layers, kernel_size=main_kernel_size,
                                 conv_dims=main_conv_dims, dropout=main_dropout)
@@ -187,11 +187,11 @@ class ForwardTacotron(nn.Module):
 
         if pitch_emb_dims > 0:
             self.pitch_proj = nn.Sequential(
-                nn.Conv1d(1, pitch_emb_dims, kernel_size=3, padding=1),
+                nn.Conv1d(1, 2 * prenet_gru_dims, kernel_size=3, padding=1),
                 nn.Dropout(pitch_proj_dropout))
         if energy_emb_dims > 0:
             self.energy_proj = nn.Sequential(
-                nn.Conv1d(1, energy_emb_dims, kernel_size=3, padding=1),
+                nn.Conv1d(1, 2 * prenet_gru_dims, kernel_size=3, padding=1),
                 nn.Dropout(energy_proj_dropout))
 
     def forward(self, batch: Dict[str, torch.tensor]) -> Dict[str, torch.tensor]:
@@ -215,12 +215,12 @@ class ForwardTacotron(nn.Module):
         if self.pitch_emb_dims > 0:
             pitch_proj = self.pitch_proj(pitch)
             pitch_proj = pitch_proj.transpose(1, 2)
-            x = torch.cat([x, pitch_proj], dim=-1)
+            x = x + pitch_proj
 
         if self.energy_emb_dims > 0:
             energy_proj = self.energy_proj(energy)
             energy_proj = energy_proj.transpose(1, 2)
-            x = torch.cat([x, energy_proj], dim=-1)
+            x = x + energy_proj
 
         x = self.lr(x, dur)
         x = self.main_net(x)
@@ -265,11 +265,11 @@ class ForwardTacotron(nn.Module):
 
         if self.pitch_emb_dims > 0:
             pitch_hat_proj = self.pitch_proj(pitch_hat).transpose(1, 2)
-            x = torch.cat([x, pitch_hat_proj], dim=-1)
+            x = x + pitch_hat_proj
 
         if self.energy_emb_dims > 0:
             energy_hat_proj = self.energy_proj(energy_hat).transpose(1, 2)
-            x = torch.cat([x, energy_hat_proj], dim=-1)
+            x = x + energy_hat_proj
 
         x = self.lr(x, dur)
         x = self.main_net(x)
