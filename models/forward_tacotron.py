@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from torch.nn import Embedding, BatchNorm1d
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
 
+from models.common_layers import CBHG
 from utils.text.symbols import phonemes
 
 MEL_PAD_VALUE = -11.5129
@@ -168,9 +169,8 @@ class ForwardTacotron(nn.Module):
                                            conv_dims=energy_conv_dims,
                                            rnn_dims=energy_rnn_dims,
                                            dropout=energy_dropout)
-        self.prenet = ConvGru(in_dims=embed_dims, gru_dims=prenet_gru_dims,
-                              conv_layers=prenet_conv_layers, kernel_size=prenet_kernel_size,
-                              conv_dims=prenet_conv_dims, dropout=prenet_dropout)
+        self.prenet = CBHG(K=16, in_channels=embed_dims, channels=prenet_gru_dims,
+                           proj_channels=[prenet_gru_dims, embed_dims], num_highways=4)
         self.main_net = ConvGru(in_dims=2 * prenet_gru_dims,
                                 gru_dims=main_gru_dims,
                                 conv_layers=main_conv_layers, kernel_size=main_kernel_size,
@@ -210,6 +210,7 @@ class ForwardTacotron(nn.Module):
         energy_hat = self.energy_pred(x, x_lens=x_lens).transpose(1, 2)
 
         x = self.embedding(x)
+        x = x.transpose(1, 2)
         x = self.prenet(x)
 
         if self.pitch_emb_dims > 0:
@@ -261,6 +262,7 @@ class ForwardTacotron(nn.Module):
         energy_hat = energy_function(energy_hat)
 
         x = self.embedding(x)
+        x = x.transpose(1, 2)
         x = self.prenet(x)
 
         if self.pitch_emb_dims > 0:
