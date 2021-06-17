@@ -100,13 +100,13 @@ class CBHG(nn.Module):
 
         # Stack along the channel axis
         conv_bank = torch.cat(conv_bank, dim=1)
-        conv_bank = F.dropout(conv_bank, p=self.dropout, training=self.training)
 
         # dump the last padding to fit residual
         x = self.maxpool(conv_bank)[:, :, :seq_len]
 
         # Conv1d projections
         x = self.conv_project1(x)
+        x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.conv_project2(x)
 
         # Residual Connect
