@@ -104,6 +104,7 @@ class CBHG(nn.Module):
         # dump the last padding to fit residual
         x = self.maxpool(conv_bank)[:, :, :seq_len]
 
+        x = F.dropout(x, p=self.dropout, training=self.training)
         # Conv1d projections
         x = self.conv_project1(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
