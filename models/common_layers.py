@@ -98,6 +98,7 @@ class CBHG(nn.Module):
 
         # Stack along the channel axis
         conv_bank = torch.cat(conv_bank, dim=1)
+        conv_bank = F.dropout(conv_bank, p=0.5, training=self.training)
 
         # dump the last padding to fit residual
         x = self.maxpool(conv_bank)[:, :, :seq_len]
