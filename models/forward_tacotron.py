@@ -254,12 +254,16 @@ class ForwardTacotron(nn.Module):
                  ) -> Dict[str, np.array]:
         self.eval()
 
+        # Fixing breaking synth of empty texts
+        if x.size(1) == 0:
+            x = torch.full((1, 1), fill_value=0, device=x.device)
+
         dur = self.dur_pred(x, alpha=alpha)
         dur = dur.squeeze(2)
 
         # Fixing breaking synth of silent texts
         if torch.sum(dur) <= 0:
-            dur = torch.full(x.size(), fill_value=2, device=x.device)
+            torch.fill_(dur, 2)
 
         pitch_hat = self.pitch_pred(x).transpose(1, 2)
         pitch_hat = pitch_function(pitch_hat)
