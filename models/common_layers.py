@@ -45,12 +45,14 @@ class CBHG(nn.Module):
                  in_channels: int,
                  channels: int,
                  proj_channels: list,
-                 num_highways: int) -> None:
+                 num_highways: int,
+                 dropout: float =0.5) -> None:
         super().__init__()
 
         # List of all rnns to call `flatten_parameters()` on
         self._to_flatten = []
 
+        self.dropout = dropout
         self.bank_kernels = [i for i in range(1, K + 1)]
         self.conv1d_bank = nn.ModuleList()
         for k in self.bank_kernels:
@@ -98,7 +100,7 @@ class CBHG(nn.Module):
 
         # Stack along the channel axis
         conv_bank = torch.cat(conv_bank, dim=1)
-        conv_bank = F.dropout(conv_bank, p=0.5, training=self.training)
+        conv_bank = F.dropout(conv_bank, p=self.dropout, training=self.training)
 
         # dump the last padding to fit residual
         x = self.maxpool(conv_bank)[:, :, :seq_len]
