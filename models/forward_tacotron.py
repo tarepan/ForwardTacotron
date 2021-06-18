@@ -9,6 +9,7 @@ from torch.nn import Embedding
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 
 from models.common_layers import CBHG
+from models.tacotron import PreNet
 from utils.text.symbols import phonemes
 
 MEL_PAD_VALUE = -11.5129
@@ -135,6 +136,9 @@ class ForwardTacotron(nn.Module):
                  energy_emb_dims: int,
                  energy_proj_dropout: float,
                  rnn_dims: int,
+                 prenet_fc1: int,
+                 prenet_fc2: int,
+                 prenet_dropout: float,
                  prenet_k: int,
                  prenet_dims: int,
                  postnet_k: int,
@@ -161,11 +165,13 @@ class ForwardTacotron(nn.Module):
                                            conv_dims=energy_conv_dims,
                                            rnn_dims=energy_rnn_dims,
                                            dropout=energy_dropout)
-        self.prenet = CBHG(K=prenet_k,
-                           in_channels=embed_dims,
-                           channels=prenet_dims,
-                           proj_channels=[prenet_dims, embed_dims],
-                           num_highways=num_highways)
+        self.prenet = PreNet(in_dims=embed_dims, fc1_dims=prenet_fc1,
+                             fc2_dims=prenet_fc2, dropout=prenet_dropout)
+        self.prenet_cbhg = CBHG(K=prenet_k,
+                                in_channels=prenet_fc2,
+                                channels=prenet_dims,
+                                proj_channels=[prenet_dims, prenet_fc2],
+                                num_highways=num_highways)
         self.lstm = nn.LSTM(2 * prenet_dims + pitch_emb_dims + energy_emb_dims,
                             rnn_dims,
                             batch_first=True,
@@ -207,8 +213,9 @@ class ForwardTacotron(nn.Module):
         energy_hat = self.energy_pred(x, x_lens=x_lens).transpose(1, 2)
 
         x = self.embedding(x)
-        x = x.transpose(1, 2)
         x = self.prenet(x)
+        x = x.transpose(1, 2)
+        x = self.prenet_cbhg(x)
 
         if self.pitch_emb_dims > 0:
             pitch_proj = self.pitch_proj(pitch)
@@ -272,8 +279,9 @@ class ForwardTacotron(nn.Module):
         energy_hat = energy_function(energy_hat)
 
         x = self.embedding(x)
-        x = x.transpose(1, 2)
         x = self.prenet(x)
+        x = x.transpose(1, 2)
+        x = self.prenet_cbhg(x)
 
         if self.pitch_emb_dims > 0:
             pitch_hat_proj = self.pitch_proj(pitch_hat).transpose(1, 2)

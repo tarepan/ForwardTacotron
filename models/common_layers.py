@@ -46,7 +46,7 @@ class CBHG(nn.Module):
                  channels: int,
                  proj_channels: list,
                  num_highways: int,
-                 dropout: float =0.5) -> None:
+                 dropout: float = 0.) -> None:
         super().__init__()
 
         # List of all rnns to call `flatten_parameters()` on

@@ -1,6 +1,6 @@
 
 voc_model_id: 'ljspeech_voc'
-tts_model_id: 'ljspeech_tts'
+tts_model_id: 'asvoice2_prenet_tts'
 
 data_path: 'data/' # output data path
 
@@ -36,9 +36,9 @@ preprocessing:
 
   seed: 42
   n_val: 200
-  language: 'en-us'
-  cleaner_name: 'english_cleaners'     # choices: ['english_cleaners', 'no_cleaners'], expands numbers and abbreviations.
-  use_phonemes: True                   # whether to phonemize the text
+  language: 'de'
+  cleaner_name: 'no_cleaners'     # choices: ['english_cleaners', 'no_cleaners'], expands numbers and abbreviations.
+  use_phonemes: False                   # whether to phonemize the text
   min_text_len: 2
 
   # Duration Extraction from Attention
@@ -126,6 +126,9 @@ forward_tacotron:
     energy_emb_dims: 32           # embedding dimension of energy, set to 0 if you don't want energy conditioning
     energy_proj_dropout: 0.
 
+    prenet_fc1: 256
+    prenet_fc2: 128
+    prenet_dropout: 0.5
     prenet_k: 16
     postnet_k: 8
     rnn_dims: 512
