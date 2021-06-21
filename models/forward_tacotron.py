@@ -40,7 +40,7 @@ class LengthRegulator(nn.Module):
 
         mids = mids.unsqueeze(1)
         sigma_hat = sigma_hat.unsqueeze(1)
-        sigma_hat = torch.relu(sigma_hat) + 0.01
+        sigma_hat = torch.sigmoid(sigma_hat)
 
         diff = t_range - mids
         logits = -(diff ** 2) / sigma_hat - 1e-9
