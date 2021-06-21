@@ -43,7 +43,7 @@ class LengthRegulator(nn.Module):
         sigma_hat = torch.sigmoid(sigma_hat)
 
         diff = t_range - mids
-        logits = -(diff ** 2) / sigma_hat - 1e-9
+        logits = -(diff ** 2) * sigma_hat - 1e-9
         weights = torch.softmax(logits, dim=2)
         x = torch.einsum('bij,bjk->bik', weights, x)
 
