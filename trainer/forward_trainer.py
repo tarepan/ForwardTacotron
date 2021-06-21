@@ -126,6 +126,7 @@ class ForwardTrainer:
                 self.writer.add_scalar('Params/batch_size', session.bs, model.get_step())
                 self.writer.add_scalar('Params/learning_rate', session.lr, model.get_step())
                 self.writer.add_histogram('Params/sigma', pred['sigma'], model.get_step())
+                print(pred['sigma'][0, :])
 
                 stream(msg)
 

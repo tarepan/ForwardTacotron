@@ -30,7 +30,7 @@ class LengthRegulator(nn.Module):
 
         device = x.device
         seq_len = mids.shape[1]
-        mel_len = ends[-1].max().long().item()
+        mel_len = ends.max().long().item()
 
         t_range = torch.arange(0, mel_len).long().to(device)
         t_range = t_range.unsqueeze(0)
@@ -40,9 +40,10 @@ class LengthRegulator(nn.Module):
 
         mids = mids.unsqueeze(1)
         sigma_hat = sigma_hat.unsqueeze(1)
+        sigma_hat = torch.relu(sigma_hat) + 1e-9
 
         diff = t_range - mids
-        logits = -diff ** 2 * sigma_hat - 1e-9
+        logits = -(diff ** 2) * sigma_hat - 1e-9
         weights = torch.softmax(logits, dim=2)
         x = torch.einsum('bij,bjk->bik', weights, x)
 
