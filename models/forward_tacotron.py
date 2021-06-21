@@ -19,29 +19,36 @@ class LengthRegulator(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, x, dur):
-        return self.expand(x, dur)
+    def forward(self, x, dur_hat, sigma_hat):
 
-    @staticmethod
-    def build_index(duration: torch.tensor, x: torch.tensor) -> torch.tensor:
-        duration[duration < 0] = 0
-        tot_duration = duration.cumsum(1).detach().cpu().numpy().astype('int')
-        max_duration = int(tot_duration.max().item())
-        index = np.zeros([x.shape[0], max_duration, x.shape[2]], dtype='long')
+        dur_hat = dur_hat.detach()
 
-        for i in range(tot_duration.shape[0]):
-            pos = 0
-            for j in range(tot_duration.shape[1]):
-                pos1 = tot_duration[i, j]
-                index[i, pos:pos1, :] = j
-                pos = pos1
-            index[i, pos:, :] = j
-        return torch.LongTensor(index).to(duration.device)
+        bs = dur_hat.shape[0]
 
-    def expand(self, x: torch.tensor, dur: torch.tensor) -> torch.tensor:
-        idx = self.build_index(dur, x)
-        y = torch.gather(x, 1, idx)
-        return y
+        ends = torch.cumsum(dur_hat, dim=1)
+        mids = ends - dur_hat / 2.
+
+        device = x.device
+        seq_len = mids.shape[1]
+        mel_len = ends[-1].max().long().item()
+
+        t_range = torch.arange(0, mel_len).long().to(device)
+        t_range = t_range.unsqueeze(0)
+        t_range = t_range.expand(bs, mel_len)
+        t_range = t_range.unsqueeze(-1)
+        t_range = t_range.expand(bs, mel_len, seq_len)
+
+        mids = mids.unsqueeze(1)
+        sigma_hat = sigma_hat.unsqueeze(1)
+
+        diff = t_range - mids
+        logits = -diff ** 2 * sigma_hat - 1e-9
+        weights = torch.softmax(logits, dim=2)
+        x = torch.einsum('bij,bjk->bik', weights, x)
+
+
+
+        return x
 
 
 class SeriesPredictor(nn.Module):
@@ -151,6 +158,11 @@ class ForwardTacotron(nn.Module):
                                         conv_dims=durpred_conv_dims,
                                         rnn_dims=durpred_rnn_dims,
                                         dropout=durpred_dropout)
+        self.sigma_pred = SeriesPredictor(num_chars=num_chars,
+                                        emb_dim=series_embed_dims,
+                                        conv_dims=durpred_conv_dims,
+                                        rnn_dims=durpred_rnn_dims,
+                                        dropout=durpred_dropout)
         self.pitch_pred = SeriesPredictor(num_chars=num_chars,
                                           emb_dim=series_embed_dims,
                                           conv_dims=pitch_conv_dims,
@@ -203,6 +215,7 @@ class ForwardTacotron(nn.Module):
             self.step += 1
 
         dur_hat = self.dur_pred(x, x_lens=x_lens).squeeze(-1)
+        sigma_hat = self.sigma_pred(x, x_lens=x_lens).squeeze(-1)
         pitch_hat = self.pitch_pred(x, x_lens=x_lens).transpose(1, 2)
         energy_hat = self.energy_pred(x, x_lens=x_lens).transpose(1, 2)
 
@@ -220,14 +233,9 @@ class ForwardTacotron(nn.Module):
             energy_proj = energy_proj.transpose(1, 2)
             x = torch.cat([x, energy_proj], dim=-1)
 
-        x = self.lr(x, dur)
-
-        x = pack_padded_sequence(x, lengths=mel_lens.cpu(), enforce_sorted=False,
-                                 batch_first=True)
+        x = self.lr(x, dur, sigma_hat)
 
         x, _ = self.lstm(x)
-
-        x, _ = pad_packed_sequence(x, padding_value=MEL_PAD_VALUE, batch_first=True)
 
         x = F.dropout(x,
                       p=self.dropout,
@@ -243,7 +251,7 @@ class ForwardTacotron(nn.Module):
         x = self.pad(x, mel.size(2))
 
         return {'mel': x, 'mel_post': x_post,
-                'dur': dur_hat, 'pitch': pitch_hat, 'energy': energy_hat}
+                'dur': dur_hat, 'pitch': pitch_hat, 'energy': energy_hat, 'sigma': sigma_hat}
 
     def generate(self,
                  x: torch.tensor,
@@ -256,6 +264,7 @@ class ForwardTacotron(nn.Module):
 
         dur = self.dur_pred(x, alpha=alpha)
         dur = dur.squeeze(2)
+        sigma = self.sigma_pred(x).squeeze(2)
 
         # Fixing breaking synth of silent texts
         if torch.sum(dur) <= 0:
@@ -279,7 +288,7 @@ class ForwardTacotron(nn.Module):
             energy_hat_proj = self.energy_proj(energy_hat).transpose(1, 2)
             x = torch.cat([x, energy_hat_proj], dim=-1)
 
-        x = self.lr(x, dur)
+        x = self.lr(x, dur, sigma)
 
         x, _ = self.lstm(x)
         x = F.dropout(x,
@@ -298,7 +307,7 @@ class ForwardTacotron(nn.Module):
         dur = dur.cpu().data.numpy()
 
         return {'mel': x, 'mel_post': x_post, 'dur': dur,
-                'pitch': pitch_hat, 'energy': energy_hat}
+                'pitch': pitch_hat, 'energy': energy_hat, 'sigma': sigma}
 
     def pad(self, x: torch.tensor, max_len: int) -> torch.tensor:
         x = x[:, :, :max_len]
