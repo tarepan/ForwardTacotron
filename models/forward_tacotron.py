@@ -40,10 +40,10 @@ class LengthRegulator(nn.Module):
 
         mids = mids.unsqueeze(1)
         sigma_hat = sigma_hat.unsqueeze(1)
-        sigma_hat = torch.relu(sigma_hat) + 1e-9
+        sigma_hat = torch.relu(sigma_hat) + 0.01
 
         diff = t_range - mids
-        logits = -(diff ** 2) * sigma_hat - 1e-9
+        logits = -(diff ** 2) / sigma_hat - 1e-9
         weights = torch.softmax(logits, dim=2)
         x = torch.einsum('bij,bjk->bik', weights, x)
 
