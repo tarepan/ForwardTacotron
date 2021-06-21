@@ -40,7 +40,6 @@ class LengthRegulator(nn.Module):
 
         mids = mids.unsqueeze(1)
         sigma_hat = sigma_hat.unsqueeze(1)
-        sigma_hat = torch.sigmoid(sigma_hat)
 
         diff = t_range - mids
         logits = -(diff ** 2) * sigma_hat - 1e-9
@@ -217,6 +216,7 @@ class ForwardTacotron(nn.Module):
 
         dur_hat = self.dur_pred(x, x_lens=x_lens).squeeze(-1)
         sigma_hat = self.sigma_pred(x, x_lens=x_lens).squeeze(-1)
+        sigma_hat = torch.sigmoid(sigma_hat)
         pitch_hat = self.pitch_pred(x, x_lens=x_lens).transpose(1, 2)
         energy_hat = self.energy_pred(x, x_lens=x_lens).transpose(1, 2)
 
@@ -266,6 +266,8 @@ class ForwardTacotron(nn.Module):
         dur = self.dur_pred(x, alpha=alpha)
         dur = dur.squeeze(2)
         sigma = self.sigma_pred(x).squeeze(2)
+        sigma = torch.sigmoid(sigma)
+
 
         # Fixing breaking synth of silent texts
         if torch.sum(dur) <= 0:
