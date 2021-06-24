@@ -123,6 +123,7 @@ forward_tacotron:
     energy_strength: 0.
 
     prenet_dims: 256
+    prenet_conv_dims: 256
     prenet_layers: 4
     prenet_heads: 4
     prenet_fft: 1024

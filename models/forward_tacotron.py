@@ -58,20 +58,28 @@ def make_len_mask(inp: torch.Tensor) -> torch.Tensor:
     return (inp == 0).transpose(0, 1)
 
 
-class ForwardTransformer(torch.nn.Module):
+class Encoder(torch.nn.Module):
 
     def __init__(self,
                  encoder_vocab_size: int,
+                 conv_dims=512,
                  d_model=256,
                  d_fft=512,
                  layers=6,
                  dropout=0.1,
                  heads=4) -> None:
-        super(ForwardTransformer, self).__init__()
+        super(Encoder, self).__init__()
 
         self.d_model = d_model
 
         self.embedding = nn.Embedding(encoder_vocab_size, d_model)
+
+        self.convs = torch.nn.ModuleList([
+            BatchNormConv(d_model, conv_dims, 5, relu=True),
+            BatchNormConv(conv_dims, conv_dims, 5, relu=True),
+            BatchNormConv(conv_dims, d_model, 5, relu=True),
+        ])
+
         self.pos_encoder = PositionalEncoding(d_model, dropout)
 
         encoder_layer = TransformerEncoderLayer(d_model=d_model,
@@ -89,6 +97,11 @@ class ForwardTransformer(torch.nn.Module):
         x = x.transpose(0, 1)        # shape: [T, N]
         src_pad_mask = make_len_mask(x).to(x.device)
         x = self.embedding(x)
+        x = x.transpose(1, 2)
+        for conv in self.convs:
+            x = conv(x)
+            x = F.dropout(x, p=0.5, training=self.training)
+        x = x.transpose(1, 2)
         x = self.pos_encoder(x)
         x = self.encoder(x, src_key_padding_mask=src_pad_mask)
         x = x.transpose(0, 1)
@@ -161,6 +174,7 @@ class ForwardTacotron(nn.Module):
                  prenet_heads: int,
                  prenet_fft: int,
                  prenet_dims: int,
+                 prenet_conv_dims: int,
                  prenet_dropout: float,
                  postnet_num_highways: int,
                  postnet_dims: int,
@@ -187,8 +201,10 @@ class ForwardTacotron(nn.Module):
                                            conv_dims=energy_conv_dims,
                                            rnn_dims=energy_rnn_dims,
                                            dropout=energy_dropout)
-        self.prenet = ForwardTransformer(heads=prenet_heads, encoder_vocab_size=num_chars, dropout=prenet_dropout,
-                                         d_model=prenet_dims, d_fft=prenet_fft, layers=prenet_layers)
+        self.prenet = Encoder(conv_dims=prenet_conv_dims,
+                              heads=prenet_heads, encoder_vocab_size=num_chars,
+                              dropout=prenet_dropout,
+                              d_model=prenet_dims, d_fft=prenet_fft, layers=prenet_layers)
 
         self.lstm = nn.LSTM(prenet_dims,
                             rnn_dims,
