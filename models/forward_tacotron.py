@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import Embedding
+from torch.nn import Embedding, GRU
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
 
 from models.common_layers import CBHG
@@ -103,6 +103,7 @@ class ForwardTacotron(nn.Module):
         self.padding_value = padding_value
         self.embedding = nn.Embedding(num_chars, embed_dims)
         self.lr = LengthRegulator()
+        self.encoder_gru = GRU(2 * prenet_dims, embed_dims // 2, bidirectional=True, batch_first=True)
         self.dur_pred = SeriesPredictor(num_chars=num_chars,
                                         emb_dim=series_embed_dims,
                                         conv_dims=durpred_conv_dims,
@@ -158,8 +159,10 @@ class ForwardTacotron(nn.Module):
         energy_hat = self.energy_pred(x).transpose(1, 2)
 
         x = self.embedding(x)
+        x_emb = x
         x = x.transpose(1, 2)
         x = self.prenet(x)
+        x_gru, _ = self.encoder_gru(x)
 
         pitch_proj = self.pitch_proj(pitch)
         pitch_proj = pitch_proj.transpose(1, 2)
@@ -189,7 +192,7 @@ class ForwardTacotron(nn.Module):
         x = self.pad(x, mel.size(2))
 
         return {'mel': x, 'mel_post': x_post,
-                'dur': dur_hat, 'pitch': pitch_hat, 'energy': energy_hat}
+                'dur': dur_hat, 'pitch': pitch_hat, 'energy': energy_hat, 'x_gru': x_gru, 'x_emb': x_emb}
 
     def generate(self,
                  x: torch.Tensor,

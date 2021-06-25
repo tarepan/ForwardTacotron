@@ -1,6 +1,6 @@
 
 voc_model_id: 'ljspeech_voc'
-tts_model_id: 'asvoice2_jit_add_tts'
+tts_model_id: 'asvoice2_jit_add_ctc_tts'
 
 data_path: 'data/' # output data path
 
@@ -124,7 +124,7 @@ forward_tacotron:
 
     prenet_dims: 256
     prenet_k: 16
-    prenet_dropout: 0.5
+    prenet_dropout: 0.
     prenet_num_highways: 4
 
     rnn_dims: 512
