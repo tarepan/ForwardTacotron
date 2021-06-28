@@ -2,10 +2,13 @@ import time
 from typing import Tuple, Dict, Any
 
 import torch
+from torch.nn import GRU, Linear, CTCLoss
+from torch.optim import Adam
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
+from models.aligner import Aligner
 from models.forward_tacotron import ForwardTacotron
 from trainer.common import Averager, TTSSession, MaskedL1, to_device, np_now
 from utils.checkpoints import  save_checkpoint
@@ -15,6 +18,7 @@ from utils.display import stream, simple_table, plot_mel, plot_pitch
 from utils.dsp import DSP
 from utils.files import parse_schedule
 from utils.paths import Paths
+from utils.text.symbols import phonemes
 
 
 class ForwardTrainer:
@@ -29,6 +33,7 @@ class ForwardTrainer:
         self.train_cfg = config['forward_tacotron']['training']
         self.writer = SummaryWriter(log_dir=paths.forward_log, comment='v1')
         self.l1_loss = MaskedL1()
+        self.ctc_loss = CTCLoss(blank=0)
 
     def train(self, model: ForwardTacotron, optimizer: Optimizer) -> None:
         forward_schedule = self.train_cfg['schedule']
@@ -65,6 +70,9 @@ class ForwardTrainer:
         duration_avg = Averager()
         pitch_loss_avg = Averager()
         device = next(model.parameters()).device  # use same device as model parameters
+        aligner = Aligner(n_mels=80, num_symbols=len(phonemes), lstm_dim=256, conv_dim=256)
+        aligner_optim = Adam(aligner.parameters(), lr=1e-4)
+
         for e in range(1, epochs + 1):
             for i, batch in enumerate(session.train_set, 1):
                 batch = to_device(batch, device=device)
@@ -88,16 +96,27 @@ class ForwardTrainer:
                 pitch_loss = self.l1_loss(pred['pitch'], pitch_target.unsqueeze(1), batch['x_len'])
                 energy_loss = self.l1_loss(pred['energy'], energy_target.unsqueeze(1), batch['x_len'])
 
+                x_hat_gt = aligner(pred['mel']).transpose(0, 1).log_softmax(2)
+                ctc_loss = self.ctc_loss(x_hat_gt, batch['x'], batch['mel_len'],  batch['x_len'])
+
                 loss = m1_loss + m2_loss \
                        + self.train_cfg['dur_loss_factor'] * dur_loss \
                        + self.train_cfg['pitch_loss_factor'] * pitch_loss \
-                       + self.train_cfg['energy_loss_factor'] * energy_loss
+                       + self.train_cfg['energy_loss_factor'] * energy_loss \
+                       + 0.1 * ctc_loss
 
                 optimizer.zero_grad()
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(),
                                                self.train_cfg['clip_grad_norm'])
                 optimizer.step()
+
+                x_hat_gt = aligner(batch['mel']).transpose(0, 1).log_softmax(2)
+                ctc_loss = self.ctc_loss(x_hat_gt, batch['x'], batch['mel_len'],  batch['x_len'])
+                aligner_optim.zero_grad()
+                ctc_loss.backward()
+                torch.nn.utils.clip_grad_norm_(aligner.parameters(), 1)
+                aligner_optim.step()
 
                 m_loss_avg.add(m1_loss.item() + m2_loss.item())
                 dur_loss_avg.add(dur_loss.item())
@@ -120,6 +139,7 @@ class ForwardTrainer:
                     self.generate_plots(model, session)
 
                 self.writer.add_scalar('Mel_Loss/train', m1_loss + m2_loss, model.get_step())
+                self.writer.add_scalar('CTC_Loss/train',ctc_loss, model.get_step())
                 self.writer.add_scalar('Pitch_Loss/train', pitch_loss, model.get_step())
                 self.writer.add_scalar('Energy_Loss/train', energy_loss, model.get_step())
                 self.writer.add_scalar('Duration_Loss/train', dur_loss, model.get_step())
