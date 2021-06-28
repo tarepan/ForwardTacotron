@@ -1,6 +1,6 @@
 
 voc_model_id: 'ljspeech_voc'
-tts_model_id: 'asvoice2_jit_add_tts'
+tts_model_id: 'asvoice2_jit_add_melgan_tts'
 
 data_path: 'data/' # output data path
 
@@ -141,6 +141,7 @@ forward_tacotron:
     dur_loss_factor: 0.1
     pitch_loss_factor: 0.1
     energy_loss_factor: 0.1
+    gen_loss_factor: 0.1
     pitch_zoneout: 0.
     energy_zoneout: 0.
 

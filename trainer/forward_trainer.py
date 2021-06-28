@@ -7,6 +7,8 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from models.forward_tacotron import ForwardTacotron
+from models.generator import Generator
+from models.multiscale import MultiScaleDiscriminator
 from trainer.common import Averager, TTSSession, MaskedL1, to_device, np_now
 from utils.checkpoints import  save_checkpoint
 from utils.dataset import get_tts_datasets
@@ -30,6 +32,16 @@ class ForwardTrainer:
         self.writer = SummaryWriter(log_dir=paths.forward_log, comment='v1')
         self.l1_loss = MaskedL1()
 
+        checkpoint = torch.load('/Users/cschaefe/stream_tts_models/melgan_asvoice2/model.pyt', map_location=torch.device('cpu'))
+        generator = Generator(80)
+        generator.load_state_dict(checkpoint['model_g'])
+        generator.train()
+        disc = MultiScaleDiscriminator()
+        disc.load_state_dict(checkpoint['model_d'])
+        disc.train()
+        self.generator = generator
+        self.disc = disc
+
     def train(self, model: ForwardTacotron, optimizer: Optimizer) -> None:
         forward_schedule = self.train_cfg['schedule']
         forward_schedule = parse_schedule(forward_schedule)
@@ -49,6 +61,7 @@ class ForwardTrainer:
 
     def train_session(self, model: ForwardTacotron,
                       optimizer: Optimizer, session: TTSSession) -> None:
+
         current_step = model.get_step()
         training_steps = session.max_step - current_step
         total_iters = len(session.train_set)
@@ -88,10 +101,20 @@ class ForwardTrainer:
                 pitch_loss = self.l1_loss(pred['pitch'], pitch_target.unsqueeze(1), batch['x_len'])
                 energy_loss = self.l1_loss(pred['energy'], energy_target.unsqueeze(1), batch['x_len'])
 
+                self.generator.zero_grad()
+                self.disc.zero_grad()
+
+                audio = self.generator(pred['mel_post'])
+                disc_fake = self.disc(audio)
+                loss_g = 0
+                for feats_fake, score_fake in disc_fake:
+                    loss_g += torch.mean(torch.sum(torch.pow(score_fake - 1.0, 2), dim=[1, 2]))
+
                 loss = m1_loss + m2_loss \
                        + self.train_cfg['dur_loss_factor'] * dur_loss \
                        + self.train_cfg['pitch_loss_factor'] * pitch_loss \
-                       + self.train_cfg['energy_loss_factor'] * energy_loss
+                       + self.train_cfg['energy_loss_factor'] * energy_loss \
+                       + self.train_cfg['gen_loss_factor'] * loss_g
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -119,6 +142,7 @@ class ForwardTrainer:
                 if step % self.train_cfg['plot_every'] == 0:
                     self.generate_plots(model, session)
 
+                self.writer.add_scalar('Gen_Loss/train', loss_g, model.get_step())
                 self.writer.add_scalar('Mel_Loss/train', m1_loss + m2_loss, model.get_step())
                 self.writer.add_scalar('Pitch_Loss/train', pitch_loss, model.get_step())
                 self.writer.add_scalar('Energy_Loss/train', energy_loss, model.get_step())
@@ -227,4 +251,10 @@ class ForwardTrainer:
             global_step=model.step, sample_rate=self.dsp.sample_rate)
         self.writer.add_audio(
             tag='Generated/postnet_wav', snd_tensor=m2_hat_wav,
+            global_step=model.step, sample_rate=self.dsp.sample_rate)
+
+        with torch.no_grad():
+            m2_hat_gen = self.generator(torch.tensor(m2_hat).unsqueeze(0))
+        self.writer.add_audio(
+            tag='Generated_Melgan/postnet_wav', snd_tensor=m2_hat_gen,
             global_step=model.step, sample_rate=self.dsp.sample_rate)
