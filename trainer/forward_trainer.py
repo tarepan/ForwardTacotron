@@ -33,7 +33,7 @@ class ForwardTrainer:
         self.writer = SummaryWriter(log_dir=paths.forward_log, comment='v1')
         self.l1_loss = MaskedL1()
 
-        checkpoint = torch.load('/Users/cschaefe/stream_tts_models/melgan_asvoice2/model.pyt', map_location=torch.device('cpu'))
+        checkpoint = torch.load('checkpoints/melgan_asvoice2.pt', map_location=torch.device('cpu'))
         generator = Generator(80)
         generator.load_state_dict(checkpoint['model_g'])
         generator.train()
