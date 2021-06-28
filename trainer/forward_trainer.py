@@ -261,7 +261,8 @@ class ForwardTrainer:
             global_step=model.step, sample_rate=self.dsp.sample_rate)
 
         with torch.no_grad():
-            m2_hat_gen = self.generator(torch.tensor(m2_hat).unsqueeze(0))
+            m2_hat_gen = self.generator(torch.tensor(m2_hat).to(device).unsqueeze(0))
+        m2_hat_gen = m2_hat_gen.cpu().numpy()
         self.writer.add_audio(
             tag='Generated_Melgan/postnet_wav', snd_tensor=m2_hat_gen,
             global_step=model.step, sample_rate=self.dsp.sample_rate)
