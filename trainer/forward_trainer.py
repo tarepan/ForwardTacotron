@@ -1,3 +1,4 @@
+import random
 import time
 from typing import Tuple, Dict, Any
 
@@ -107,11 +108,14 @@ class ForwardTrainer:
                 self.generator.zero_grad()
                 self.disc.zero_grad()
 
-                audio = self.generator(pred['mel_post'])
-                disc_fake = self.disc(audio)
-                loss_g = 0
-                for feats_fake, score_fake in disc_fake:
-                    loss_g += torch.mean(torch.sum(torch.pow(score_fake - 1.0, 2), dim=[1, 2]))
+                mel_len = pred['mel_post'].size(2)
+                if mel_len > 50:
+                    pred_start = random.randrange(0, mel_len-50)
+                    audio = self.generator(pred['mel_post'][:, :, pred_start:pred_start+50])
+                    disc_fake = self.disc(audio)
+                    loss_g = 0
+                    for feats_fake, score_fake in disc_fake:
+                        loss_g += torch.mean(torch.sum(torch.pow(score_fake - 1.0, 2), dim=[1, 2]))
 
                 loss = m1_loss + m2_loss \
                        + self.train_cfg['dur_loss_factor'] * dur_loss \
