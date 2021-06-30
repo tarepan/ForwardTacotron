@@ -147,6 +147,8 @@ class ForwardTrainer:
                     self.disc.zero_grad()
                     optimizer.zero_grad()
                     pred = model(batch)
+                    step = model.get_step()
+
                     mel_len = pred['mel_post'].size(2)
                     loss_g = 0
                     pred_start = random.randrange(0, mel_len-60)
