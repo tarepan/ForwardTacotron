@@ -117,7 +117,7 @@ class ForwardTrainer:
                     for feats_fake, score_fake in disc_fake:
                         loss_g += torch.mean(torch.sum(torch.pow(score_fake - 1.0, 2), dim=[1, 2]))
 
-                loss = m1_loss + m2_loss \
+                loss = self.train_cfg['mel_loss_factor'] * (m1_loss + m2_loss) \
                        + self.train_cfg['dur_loss_factor'] * dur_loss \
                        + self.train_cfg['pitch_loss_factor'] * pitch_loss \
                        + self.train_cfg['energy_loss_factor'] * energy_loss \

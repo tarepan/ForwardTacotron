@@ -1,6 +1,6 @@
 
 voc_model_id: 'ljspeech_voc'
-tts_model_id: 'asvoice2_jit_add_melgan_tts'
+tts_model_id: 'asvoice2_jit_add_melgan_opti_tts'
 
 data_path: 'data/' # output data path
 
@@ -138,10 +138,11 @@ forward_tacotron:
     schedule:
       - 1e-4,  150_000,  32   # progressive training schedule
       - 1e-5,  300_000,  32   # lr, step, batch_size
-    dur_loss_factor: 0.1
-    pitch_loss_factor: 0.1
-    energy_loss_factor: 0.1
-    gen_loss_factor: 0.01
+    dur_loss_factor: 0.
+    pitch_loss_factor: 0.
+    energy_loss_factor: 0.
+    gen_loss_factor: 0.001
+    mel_loss_factor: 0.
     pitch_zoneout: 0.
     energy_zoneout: 0.
 
