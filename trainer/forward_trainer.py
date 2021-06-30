@@ -114,7 +114,8 @@ class ForwardTrainer:
 
                 loss_g = 0
                 num_iter = self.train_cfg['gen_iter']
-                for i in range(10):
+                optimizer.zero_grad()
+                for i in range(num_iter):
                     pred_start = random.randrange(0, mel_len-60)
                     audio = self.generator(pred['mel_post'][:, :, pred_start:pred_start+60])
                     disc_fake = self.disc(audio)
@@ -128,7 +129,6 @@ class ForwardTrainer:
                        + self.train_cfg['energy_loss_factor'] * energy_loss \
                        + self.train_cfg['gen_loss_factor'] * loss_g
 
-                optimizer.zero_grad()
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(model.parameters(),
                                                self.train_cfg['clip_grad_norm'])
