@@ -110,21 +110,6 @@ class ForwardTrainer:
                 energy_loss = self.l1_loss(pred['energy'], energy_target.unsqueeze(1), batch['x_len'])
 
 
-                num_iter = self.train_cfg['gen_iter']
-                optimizer.zero_grad()
-                for i in range(num_iter):
-                    self.generator.zero_grad()
-                    self.disc.zero_grad()
-                    pred = model(batch)
-                    loss_g = 0
-                    pred_start = random.randrange(0, mel_len-60)
-                    audio = self.generator(pred['mel_post'][:, :, pred_start:pred_start+60])
-                    disc_fake = self.disc(audio)
-                    for feats_fake, score_fake in disc_fake:
-                        loss_g += torch.mean(torch.sum(torch.pow(score_fake - 1.0, 2), dim=[1, 2]))
-                    loss_g /= num_iter
-                    loss_g.backward(retain_graph=True)
-
                 loss = self.train_cfg['mel_loss_factor'] * (m1_loss + m2_loss) \
                        + self.train_cfg['dur_loss_factor'] * dur_loss \
                        + self.train_cfg['pitch_loss_factor'] * pitch_loss \
@@ -155,7 +140,30 @@ class ForwardTrainer:
                 if step % self.train_cfg['plot_every'] == 0:
                     self.generate_plots(model, session)
 
-                self.writer.add_scalar('Gen_Loss/train', loss_g, model.get_step())
+                num_iter = self.train_cfg['gen_iter']
+                optimizer.zero_grad()
+                loss_g_avg = 0
+                for i in range(num_iter):
+                    pred = model(batch)
+                    mel_len = pred['mel_post'].size(2)
+                    self.generator.zero_grad()
+                    self.disc.zero_grad()
+                    pred = model(batch)
+                    loss_g = 0
+                    pred_start = random.randrange(0, mel_len-60)
+                    audio = self.generator(pred['mel_post'][:, :, pred_start:pred_start+60])
+                    disc_fake = self.disc(audio)
+                    for feats_fake, score_fake in disc_fake:
+                        loss_g += torch.mean(torch.sum(torch.pow(score_fake - 1.0, 2), dim=[1, 2]))
+                    loss_g /= num_iter
+                    loss_g.backward()
+                    loss_g_avg += loss_g.item()
+
+                torch.nn.utils.clip_grad_norm_(model.parameters(),
+                                               self.train_cfg['clip_grad_norm'])
+                optimizer.step()
+
+                self.writer.add_scalar('Gen_Loss/train', loss_g_avg, model.get_step())
                 self.writer.add_scalar('Mel_Loss/train', m1_loss + m2_loss, model.get_step())
                 self.writer.add_scalar('Pitch_Loss/train', pitch_loss, model.get_step())
                 self.writer.add_scalar('Energy_Loss/train', energy_loss, model.get_step())
