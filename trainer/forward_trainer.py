@@ -99,7 +99,7 @@ class ForwardTrainer:
                 pred = model(batch)
                 mel_len = pred['mel_post'].size(2)
 
-                if mel_len < 50:
+                if mel_len < 60:
                     continue
 
                 m1_loss = self.l1_loss(pred['mel'], batch['mel'], batch['mel_len'])
@@ -109,13 +109,13 @@ class ForwardTrainer:
                 pitch_loss = self.l1_loss(pred['pitch'], pitch_target.unsqueeze(1), batch['x_len'])
                 energy_loss = self.l1_loss(pred['energy'], energy_target.unsqueeze(1), batch['x_len'])
 
-                self.generator.zero_grad()
-                self.disc.zero_grad()
 
                 num_iter = self.train_cfg['gen_iter']
                 optimizer.zero_grad()
                 for i in range(num_iter):
-                    print(i)
+                    self.generator.zero_grad()
+                    self.disc.zero_grad()
+                    pred = model(batch)
                     loss_g = 0
                     pred_start = random.randrange(0, mel_len-60)
                     audio = self.generator(pred['mel_post'][:, :, pred_start:pred_start+60])
