@@ -141,9 +141,9 @@ class ForwardTrainer:
                     self.generate_plots(model, session)
 
                 num_iter = self.train_cfg['gen_iter']
-                optimizer.zero_grad()
                 loss_g_avg = 0
                 for i in range(num_iter):
+                    optimizer.zero_grad()
                     pred = model(batch)
                     mel_len = pred['mel_post'].size(2)
                     self.generator.zero_grad()
@@ -157,10 +157,9 @@ class ForwardTrainer:
                     loss_g /= num_iter
                     loss_g.backward()
                     loss_g_avg += loss_g.item()
-
-                torch.nn.utils.clip_grad_norm_(model.parameters(),
-                                               self.train_cfg['clip_grad_norm'])
-                optimizer.step()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(),
+                                                   self.train_cfg['clip_grad_norm'])
+                    optimizer.step()
 
                 self.writer.add_scalar('Gen_Loss/train', loss_g_avg, model.get_step())
                 self.writer.add_scalar('Mel_Loss/train', m1_loss + m2_loss, model.get_step())
