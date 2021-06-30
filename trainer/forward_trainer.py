@@ -143,11 +143,11 @@ class ForwardTrainer:
                 num_iter = self.train_cfg['gen_iter']
                 loss_g_avg = 0
                 for i in range(num_iter):
+                    self.generator.zero_grad()
+                    self.disc.zero_grad()
                     optimizer.zero_grad()
                     pred = model(batch)
                     mel_len = pred['mel_post'].size(2)
-                    self.generator.zero_grad()
-                    self.disc.zero_grad()
                     loss_g = 0
                     pred_start = random.randrange(0, mel_len-60)
                     audio = self.generator(pred['mel_post'][:, :, pred_start:pred_start+60])
