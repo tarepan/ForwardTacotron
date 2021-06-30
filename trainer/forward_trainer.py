@@ -97,6 +97,10 @@ class ForwardTrainer:
                 batch['energy'] = batch['energy'] * energy_zoneout_mask.to(device).float()
 
                 pred = model(batch)
+                mel_len = pred['mel_post'].size(2)
+
+                if mel_len < 50:
+                    continue
 
                 m1_loss = self.l1_loss(pred['mel'], batch['mel'], batch['mel_len'])
                 m2_loss = self.l1_loss(pred['mel_post'], batch['mel'], batch['mel_len'])
@@ -108,14 +112,15 @@ class ForwardTrainer:
                 self.generator.zero_grad()
                 self.disc.zero_grad()
 
-                mel_len = pred['mel_post'].size(2)
-                if mel_len > 50:
+                loss_g = 0
+                num_iter = self.train_cfg['gen_iter']
+                for i in range(10):
                     pred_start = random.randrange(0, mel_len-50)
                     audio = self.generator(pred['mel_post'][:, :, pred_start:pred_start+50])
                     disc_fake = self.disc(audio)
-                    loss_g = 0
                     for feats_fake, score_fake in disc_fake:
                         loss_g += torch.mean(torch.sum(torch.pow(score_fake - 1.0, 2), dim=[1, 2]))
+                loss_g /= num_iter
 
                 loss = self.train_cfg['mel_loss_factor'] * (m1_loss + m2_loss) \
                        + self.train_cfg['dur_loss_factor'] * dur_loss \
