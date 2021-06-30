@@ -154,8 +154,9 @@ class ForwardTrainer:
                     audio = self.generator(pred['mel_post'][:, :, pred_start:pred_start+60])
                     disc_fake = self.disc(audio)
                     for feats_fake, score_fake in disc_fake:
-                        loss_g += torch.mean(torch.sum(torch.pow(score_fake - 1.0, 2), dim=[1, 2])) * self.train_cfg['gen_loss_factor']
-                    loss_g /= num_iter
+                        loss_g += torch.mean(torch.sum(torch.pow(score_fake - 1.0, 2), dim=[1, 2]))
+                    loss_g = loss_g * self.train_cfg['gen_loss_factor']
+                    loss_g = loss_g / num_iter
                     loss_g.backward()
                     loss_g_avg += loss_g.item()
                     torch.nn.utils.clip_grad_norm_(model.parameters(),
