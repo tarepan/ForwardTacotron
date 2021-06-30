@@ -99,7 +99,7 @@ class ForwardTrainer:
                 pred = model(batch)
                 mel_len = pred['mel_post'].size(2)
 
-                if mel_len < 60:
+                if mel_len < 50:
                     continue
 
                 m1_loss = self.l1_loss(pred['mel'], batch['mel'], batch['mel_len'])
@@ -112,24 +112,21 @@ class ForwardTrainer:
                 self.generator.zero_grad()
                 self.disc.zero_grad()
 
+                loss_g = 0
                 num_iter = self.train_cfg['gen_iter']
-                for i in range(num_iter):
-                    loss_g = 0
+                for i in range(10):
                     pred_start = random.randrange(0, mel_len-60)
                     audio = self.generator(pred['mel_post'][:, :, pred_start:pred_start+60])
                     disc_fake = self.disc(audio)
                     for feats_fake, score_fake in disc_fake:
-                        loss_g += torch.mean(torch.sum(torch.pow(score_fake - 1.0, 2), dim=[1, 2])) + self.train_cfg['gen_loss_factor']
-                    optimizer.zero_grad()
-                    loss_g.backward()
-                    torch.nn.utils.clip_grad_norm_(model.parameters(),
-                                                   self.train_cfg['clip_grad_norm'])
-                    optimizer.step()
+                        loss_g += torch.mean(torch.sum(torch.pow(score_fake - 1.0, 2), dim=[1, 2]))
+                loss_g /= num_iter
 
                 loss = self.train_cfg['mel_loss_factor'] * (m1_loss + m2_loss) \
                        + self.train_cfg['dur_loss_factor'] * dur_loss \
                        + self.train_cfg['pitch_loss_factor'] * pitch_loss \
-                       + self.train_cfg['energy_loss_factor'] * energy_loss
+                       + self.train_cfg['energy_loss_factor'] * energy_loss \
+                       + self.train_cfg['gen_loss_factor'] * loss_g
 
                 optimizer.zero_grad()
                 loss.backward()
