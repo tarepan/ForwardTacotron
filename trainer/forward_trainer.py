@@ -161,6 +161,13 @@ class ForwardTrainer:
                                                    self.train_cfg['clip_grad_norm'])
                     optimizer.step()
 
+                    if step % self.train_cfg['checkpoint_every'] == 0:
+                        save_checkpoint(model=model, optim=optimizer, config=self.config,
+                                        path=self.paths.forward_checkpoints / f'forward_step{k}k.pt')
+
+                    if step % self.train_cfg['plot_every'] == 0:
+                        self.generate_plots(model, session)
+
                 self.writer.add_scalar('Gen_Loss/train', loss_g_avg, model.get_step())
                 self.writer.add_scalar('Mel_Loss/train', m1_loss + m2_loss, model.get_step())
                 self.writer.add_scalar('Pitch_Loss/train', pitch_loss, model.get_step())
