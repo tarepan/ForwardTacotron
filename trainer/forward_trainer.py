@@ -142,6 +142,9 @@ class ForwardTrainer:
                 num_iter = self.train_cfg['gen_iter']
                 loss_g_avg = 0
                 for i in range(num_iter):
+                    model.train()
+                    self.generator.train()
+                    self.disc.train()
                     self.generator.zero_grad()
                     self.disc.zero_grad()
                     optimizer.zero_grad()
