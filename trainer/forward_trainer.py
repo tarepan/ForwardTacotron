@@ -109,7 +109,6 @@ class ForwardTrainer:
                 pitch_loss = self.l1_loss(pred['pitch'], pitch_target.unsqueeze(1), batch['x_len'])
                 energy_loss = self.l1_loss(pred['energy'], energy_target.unsqueeze(1), batch['x_len'])
 
-
                 loss = self.train_cfg['mel_loss_factor'] * (m1_loss + m2_loss) \
                        + self.train_cfg['dur_loss_factor'] * dur_loss \
                        + self.train_cfg['pitch_loss_factor'] * pitch_loss \
@@ -155,7 +154,7 @@ class ForwardTrainer:
                     audio = self.generator(pred['mel_post'][:, :, pred_start:pred_start+60])
                     disc_fake = self.disc(audio)
                     for feats_fake, score_fake in disc_fake:
-                        loss_g += torch.mean(torch.sum(torch.pow(score_fake - 1.0, 2), dim=[1, 2]))
+                        loss_g += torch.mean(torch.sum(torch.pow(score_fake - 1.0, 2), dim=[1, 2])) * self.train_cfg['gen_loss_factor']
                     loss_g /= num_iter
                     loss_g.backward()
                     loss_g_avg += loss_g.item()
