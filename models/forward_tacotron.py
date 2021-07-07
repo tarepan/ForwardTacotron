@@ -21,8 +21,6 @@ class LengthRegulator(nn.Module):
     def forward(self, x: torch.Tensor, dur: torch.Tensor) -> torch.Tensor:
         x_expanded = []
         for i in range(x.size(0)):
-            print(x[i].size())
-            print(dur[i].size())
             x_exp = torch.repeat_interleave(x[i], (dur[i] + 0.5).long(), dim=0)
             x_expanded.append(x_exp)
         x_expanded = pad_sequence(x_expanded, padding_value=0., batch_first=True)
@@ -180,22 +178,14 @@ class ForwardTacotron(nn.Module):
         x_right = self.lr(x_copy[:, 1:, :], dur[:, :-1])
         x_left = self.lr(torch.cat(
             [torch.zeros(x_copy[:, :1, :].size()).to(x.device), x_copy[:, :-1, :]], dim=1), dur)
-
-        print(x[0, :20, 0])
-        print(x_right[0, :20, 0])
-        print(x_left[0, :20, 0])
-
         min_len = min(x_left.size(1), x_mid.size(1), x_right.size(1))
         x_left = x_left[:, :min_len, :]
         x_mid = x_mid[:, :min_len, :]
         x_right = x_right[:, :min_len, :]
-
         x_att_in = torch.cat([x_left, x_mid, x_right], dim=-1)
         x_att, _ = self.att_rnn(x_att_in)
         x_att = self.att_lin(x_att)
         x_att = torch.softmax(x_att, dim=-1)
-        print(x_left.size())
-        print(x_att.size())
         x = x_left * x_att[:, :, 0:1] + x_mid * x_att[:, :, 1:2] + x_right * x_att[:, :, 2:3]
         if torch.rand(1)[0] < 0.1:
             print(x_att[0, :100, :])
@@ -252,7 +242,20 @@ class ForwardTacotron(nn.Module):
         energy_proj = energy_proj.transpose(1, 2)
         x = x + energy_proj * self.energy_strength
 
-        x = self.lr(x, dur)
+        x_copy = x
+        x_mid = self.lr(x_copy, dur)
+        x_right = self.lr(x_copy[:, 1:, :], dur[:, :-1])
+        x_left = self.lr(torch.cat(
+            [torch.zeros(x_copy[:, :1, :].size()).to(x.device), x_copy[:, :-1, :]], dim=1), dur)
+        min_len = min(x_left.size(1), x_mid.size(1), x_right.size(1))
+        x_left = x_left[:, :min_len, :]
+        x_mid = x_mid[:, :min_len, :]
+        x_right = x_right[:, :min_len, :]
+        x_att_in = torch.cat([x_left, x_mid, x_right], dim=-1)
+        x_att, _ = self.att_rnn(x_att_in)
+        x_att = self.att_lin(x_att)
+        x_att = torch.softmax(x_att, dim=-1)
+        x = x_left * x_att[:, :, 0:1] + x_mid * x_att[:, :, 1:2] + x_right * x_att[:, :, 2:3]
 
         x, _ = self.lstm(x)
 
