@@ -185,9 +185,12 @@ class ForwardTacotron(nn.Module):
         x_att, _ = self.att_rnn(mel.transpose(1, 2))
         x_att = self.att_lin(x_att)
         x_att = torch.softmax(x_att, dim=-1)[:, :min_len, :]
+        x_att = ((x_att + 0.5).int()).float()
+
         x = x_left * x_att[:, :, 0:1] + x_mid * x_att[:, :, 1:2] + x_right * x_att[:, :, 2:3]
-        if torch.rand(1)[0] < 0.1:
-            print(x_att[0, :100, :])
+
+        if torch.rand(1)[0] < 0.01:
+            print(x_att[0, :500, :])
 
         x, _ = self.lstm(x)
 
@@ -202,7 +205,8 @@ class ForwardTacotron(nn.Module):
         x = self.pad(x, mel.size(2))
 
         return {'mel': x, 'mel_post': x_post,
-                'dur': dur_hat, 'pitch': pitch_hat, 'energy': energy_hat}
+                'dur': dur_hat, 'pitch': pitch_hat, 'energy': energy_hat,
+                'att': x_att}
 
     def generate(self,
                  x: torch.Tensor,
