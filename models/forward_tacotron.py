@@ -142,7 +142,7 @@ class ForwardTacotron(nn.Module):
         self.energy_strength = energy_strength
         self.pitch_proj = nn.Conv1d(1, 2 * prenet_dims, kernel_size=3, padding=1)
         self.energy_proj = nn.Conv1d(1, 2 * prenet_dims, kernel_size=3, padding=1)
-        self.att_rnn = GRU(6*prenet_dims, 64, bidirectional=True, batch_first=True)
+        self.att_rnn = GRU(n_mels, 64, bidirectional=True, batch_first=True)
         self.att_lin = nn.Linear(128, 3)
 
     def forward(self, batch: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
@@ -182,10 +182,9 @@ class ForwardTacotron(nn.Module):
         x_left = x_left[:, :min_len, :]
         x_mid = x_mid[:, :min_len, :]
         x_right = x_right[:, :min_len, :]
-        x_att_in = torch.cat([x_left, x_mid, x_right], dim=-1)
-        x_att, _ = self.att_rnn(x_att_in)
+        x_att, _ = self.att_rnn(mel.transpose(1, 2))
         x_att = self.att_lin(x_att)
-        x_att = torch.softmax(x_att, dim=-1)
+        x_att = torch.softmax(x_att, dim=-1)[:, :min_len, :]
         x = x_left * x_att[:, :, 0:1] + x_mid * x_att[:, :, 1:2] + x_right * x_att[:, :, 2:3]
         if torch.rand(1)[0] < 0.1:
             print(x_att[0, :100, :])
@@ -237,20 +236,7 @@ class ForwardTacotron(nn.Module):
         energy_proj = energy_proj.transpose(1, 2)
         x = x + energy_proj * self.energy_strength
 
-        x_copy = x
-        x_mid = self.lr(x_copy, dur)
-        x_right = self.lr(x_copy[:, 1:, :], dur[:, :-1])
-        x_left = self.lr(torch.cat(
-            [torch.zeros(x_copy[:, :1, :].size()).to(x.device), x_copy[:, :-1, :]], dim=1), dur)
-        min_len = min(x_left.size(1), x_mid.size(1), x_right.size(1))
-        x_left = x_left[:, :min_len, :]
-        x_mid = x_mid[:, :min_len, :]
-        x_right = x_right[:, :min_len, :]
-        x_att_in = torch.cat([x_left, x_mid, x_right], dim=-1)
-        x_att, _ = self.att_rnn(x_att_in)
-        x_att = self.att_lin(x_att)
-        x_att = torch.softmax(x_att, dim=-1)
-        x = x_left * x_att[:, :, 0:1] + x_mid * x_att[:, :, 1:2] + x_right * x_att[:, :, 2:3]
+        x = self.lr(x, dur)
 
         x, _ = self.lstm(x)
 
