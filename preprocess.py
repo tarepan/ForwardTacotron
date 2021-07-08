@@ -72,7 +72,6 @@ class Preprocessor:
         print(f'{len(text)} {embs_char.size()}')
         torch.save(embs_char, self.paths.flair_char/f'{wav_id}.pt')
 
-
         return wav_id, m.shape[-1], text
 
     def _convert_file(self, path: Path) -> Tuple[np.array, np.array, np.array]:
