@@ -41,7 +41,7 @@ class Preprocessor:
         self.cleaner = cleaner
         self.lang = lang
         self.dsp = dsp
-        self.phonemizer = Phonemizer.from_checkpoint('/Users/cschaefe/stream_tts_models_new/welt/prod/v1/phon_model/model.pt')
+        self.phonemizer = Phonemizer.from_checkpoint('phon_model.pt')
         flair_embedding_forward = FlairEmbeddings('de-forward')
         flair_embedding_backward = FlairEmbeddings('de-backward')
         self.stacked_embeddings = StackedEmbeddings([
@@ -108,7 +108,7 @@ if __name__ == '__main__':
 
     config = read_config(args.config)
     wav_files = get_files(args.path, '.wav')
-    wav_ids = {w.stem for w in wav_files}
+    wav_ids = {w.stem for w in wav_files if not w.stem.startswith('en_')}
     paths = Paths(config['data_path'], config['voc_model_id'], config['tts_model_id'])
     print(f'\n{len(wav_files)} .wav files found in "{args.path}"')
     assert len(wav_files) > 0, f'Found no wav files in {args.path}, exiting.'
