@@ -3,7 +3,11 @@ from multiprocessing import Pool, cpu_count
 from random import Random
 from typing import Tuple, Dict
 
+import torch
+from dp.phonemizer import Phonemizer
 import pyworld as pw
+from flair.data import Sentence
+from flair.embeddings import FlairEmbeddings, StackedEmbeddings
 
 from utils.display import *
 from utils.dsp import *
@@ -37,6 +41,14 @@ class Preprocessor:
         self.cleaner = cleaner
         self.lang = lang
         self.dsp = dsp
+        self.phonemizer = Phonemizer.from_checkpoint('/Users/cschaefe/stream_tts_models_new/welt/prod/v1/phon_model/model.pt')
+        flair_embedding_forward = FlairEmbeddings('de-forward')
+        flair_embedding_backward = FlairEmbeddings('de-backward')
+        self.stacked_embeddings = StackedEmbeddings([
+            flair_embedding_forward,
+            flair_embedding_backward,
+        ])
+
 
     def __call__(self, path: Path) -> Tuple[str, int, str]:
         wav_id = path.stem
@@ -46,10 +58,25 @@ class Preprocessor:
         np.save(self.paths.raw_pitch/f'{wav_id}.npy', raw_pitch, allow_pickle=False)
         text = self.text_dict[wav_id]
         text = self.cleaner(text)
+        sent = Sentence(text)
+        phons = [self.phonemizer(t.text, lang='de') for t in sent.tokens]
+        self.stacked_embeddings.embed(sent)
+        text = ' '.join(phons)
+        embs = [t.embedding for t in sent.tokens]
+        torch.save(embs, self.paths.flair_word/f'{wav_id}.pt')
+        embs_char = []
+        for word, emb in zip(phons, embs):
+            embs_char.extend([emb]*(len(word)+1))
+        embs_char = embs_char[:len(text)]
+        embs_char = torch.stack(embs_char)
+        print(f'{len(text)} {embs_char.size()}')
+        torch.save(embs_char, self.paths.flair_char/f'{wav_id}.pt')
+
+
         return wav_id, m.shape[-1], text
 
     def _convert_file(self, path: Path) -> Tuple[np.array, np.array, np.array]:
-        y = self.dsp.load_wav(path)
+        y = self.dsp.load_wav(str(path))
         if self.dsp.trim_long_silences:
            y = self.dsp.trim_long_silences(y)
         if self.dsp.should_trim_start_end_silence:

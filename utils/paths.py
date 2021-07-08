@@ -16,7 +16,8 @@ class Paths:
         self.raw_pitch = self.data/'raw_pitch'
         self.phon_pitch = self.data/'phon_pitch'
         self.phon_energy = self.data/'phon_energy'
-
+        self.flair_word = self.data/'flair_word'
+        self.flair_char = self.data/'flair_char'
         self.model_output = self.base / 'model_output'
 
         self.voc_checkpoints = self.base/'checkpoints'/f'{voc_id}.wavernn'
@@ -37,6 +38,8 @@ class Paths:
         os.makedirs(self.mel, exist_ok=True)
         os.makedirs(self.gta, exist_ok=True)
         os.makedirs(self.alg, exist_ok=True)
+        os.makedirs(self.flair_word, exist_ok=True)
+        os.makedirs(self.flair_char, exist_ok=True)
         os.makedirs(self.raw_pitch, exist_ok=True)
         os.makedirs(self.phon_pitch, exist_ok=True)
         os.makedirs(self.phon_energy, exist_ok=True)

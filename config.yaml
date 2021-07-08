@@ -2,7 +2,7 @@
 voc_model_id: 'ljspeech_voc'
 tts_model_id: 'asvoice2_jit_add_tts'
 
-data_path: 'data/' # output data path
+data_path: 'data_flair/' # output data path
 
 dsp:
 

@@ -35,7 +35,7 @@ def create_gta_features(model: Tacotron,
         gta = pred['mel_post'].cpu().numpy()
         for j, item_id in enumerate(batch['item_id']):
             mel = gta[j][:, :batch['mel_len'][j]]
-            np.save(str(save_path/f'{item_id}.npy'), mel, allow_pickle=False)
+            torch.save(torch.tensor(mel).unsqueeze(0).float(), str(save_path/f'{item_id}.mel'))
         bar = progbar(i, iters)
         msg = f'{bar} {i}/{iters} Batches '
         stream(msg)
