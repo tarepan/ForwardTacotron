@@ -59,9 +59,11 @@ class Preprocessor:
         text = self.text_dict[wav_id]
         text = self.cleaner(text)
         sent = Sentence(text)
+        print(text)
         phons = [self.phonemizer(t.text, lang='de') for t in sent.tokens]
         self.stacked_embeddings.embed(sent)
         text = ' '.join(phons)
+        print(text)
         embs = [t.embedding for t in sent.tokens]
         torch.save(embs, self.paths.flair_word/f'{wav_id}.pt')
         embs_char = []
