@@ -43,10 +43,8 @@ class Preprocessor:
         self.dsp = dsp
         self.phonemizer = Phonemizer.from_checkpoint('phon_model.pt')
         flair_embedding_forward = FlairEmbeddings('de-forward')
-        flair_embedding_backward = FlairEmbeddings('de-backward')
         self.stacked_embeddings = StackedEmbeddings([
-            flair_embedding_forward,
-            flair_embedding_backward,
+            flair_embedding_forward
         ])
 
 
