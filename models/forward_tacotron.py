@@ -154,7 +154,7 @@ class ForwardTacotron(nn.Module):
         mel_lens = batch['mel_len']
         pitch = batch['pitch'].unsqueeze(1)
         energy = batch['energy'].unsqueeze(1)
-        x_flair = batch['flair']
+        x_flair = batch['x_flair']
 
         if self.training:
             self.step += 1
