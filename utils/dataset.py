@@ -1,4 +1,5 @@
 import torch
+from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data.sampler import Sampler
 from torch.utils.data import Dataset, DataLoader
 from typing import List, Dict, Union, Tuple
@@ -312,6 +313,8 @@ def collate_tts(batch: List[Dict[str, Union[str, torch.tensor]]], r: int) -> Dic
         energy = np.stack(energy)
         energy = torch.tensor(energy).float()
     if 'x_flair' in batch[0]:
+        x_flair = [b['x_flair'] for b in batch]
+        x_flair = pad_sequence(x_flair)
         x_flair = [pad1d(b['flair'][:max_x_len], max_x_len) for b in batch]
         x_flair = np.stack(x_flair)
         x_flair = torch.tensor(x_flair).float()
@@ -350,3 +353,7 @@ class BinnedLengthSampler(Sampler):
 
     def __len__(self):
         return len(self.idx)
+
+
+if __name__ == '__main__':
+    pass
