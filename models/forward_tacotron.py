@@ -209,7 +209,7 @@ class ForwardTacotron(nn.Module):
                  energy_function: Callable[[torch.Tensor], torch.Tensor] = lambda x: x) -> Dict[str, np.array]:
         self.eval()
 
-        dur = self.dur_pred(x, alpha=alpha)
+        dur = self.dur_pred(x, x_flair, alpha=alpha)
         dur = dur.squeeze(2)
 
         # Fixing breaking synth of silent texts
@@ -217,7 +217,7 @@ class ForwardTacotron(nn.Module):
             dur = torch.full(x.size(), fill_value=2, device=x.device)
 
         pitch_hat = self.pitch_pred(x, x_flair).transpose(1, 2)
-        pitch_hat = pitch_function(pitch_hat, x_flair)
+        pitch_hat = pitch_function(pitch_hat)
 
         energy_hat = self.energy_pred(x, x_flair).transpose(1, 2)
         energy_hat = energy_function(energy_hat)
