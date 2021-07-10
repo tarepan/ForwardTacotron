@@ -160,9 +160,9 @@ class ForwardTacotron(nn.Module):
             self.step += 1
 
 
-        dur_hat = self.dur_pred(x).squeeze(-1)
-        pitch_hat = self.pitch_pred(x).transpose(1, 2)
-        energy_hat = self.energy_pred(x).transpose(1, 2)
+        dur_hat = self.dur_pred(x, x_flair).squeeze(-1)
+        pitch_hat = self.pitch_pred(x, x_flair).transpose(1, 2)
+        energy_hat = self.energy_pred(x, x_flair).transpose(1, 2)
 
         x = self.embedding(x)
         x_flair = self.bottle(x_flair)
@@ -216,10 +216,10 @@ class ForwardTacotron(nn.Module):
         if torch.sum(dur) <= 0:
             dur = torch.full(x.size(), fill_value=2, device=x.device)
 
-        pitch_hat = self.pitch_pred(x).transpose(1, 2)
-        pitch_hat = pitch_function(pitch_hat)
+        pitch_hat = self.pitch_pred(x, x_flair).transpose(1, 2)
+        pitch_hat = pitch_function(pitch_hat, x_flair)
 
-        energy_hat = self.energy_pred(x).transpose(1, 2)
+        energy_hat = self.energy_pred(x, x_flair).transpose(1, 2)
         energy_hat = energy_function(energy_hat)
 
         x = self.embedding(x)
