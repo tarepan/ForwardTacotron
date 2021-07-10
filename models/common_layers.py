@@ -86,7 +86,7 @@ class CBHG(nn.Module):
         x = self.maxpool(conv_bank)[:, :, :seq_len]
         x = F.dropout(x, p=self.dropout, training=self.training)
 
-        # Conv1d projections
+        #   Conv1d projections
         x = self.conv_project1(x)
         x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.conv_project2(x)
