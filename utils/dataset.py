@@ -313,7 +313,7 @@ def collate_tts(batch: List[Dict[str, Union[str, torch.tensor]]], r: int) -> Dic
         energy = np.stack(energy)
         energy = torch.tensor(energy).float()
     if 'x_flair' in batch[0]:
-        x_flair = [pad1d(b['x_flair'][:max_x_len].cpu.numpy(), max_x_len) for b in batch]
+        x_flair = [pad1d(b['x_flair'][:max_x_len].cpu().numpy(), max_x_len) for b in batch]
         x_flair = np.stack(x_flair)
         x_flair = torch.tensor(x_flair).float()
 
