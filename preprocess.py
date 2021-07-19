@@ -7,7 +7,7 @@ import torch
 from dp.phonemizer import Phonemizer
 import pyworld as pw
 from flair.data import Sentence
-from flair.embeddings import TransformerWordEmbeddings, StackedEmbeddings
+from flair.embeddings import TransformerWordEmbeddings, StackedEmbeddings, FlairEmbeddings
 
 from utils.display import *
 from utils.dsp import *
