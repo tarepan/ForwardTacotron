@@ -42,7 +42,7 @@ class Preprocessor:
         self.lang = lang
         self.dsp = dsp
         self.phonemizer = Phonemizer.from_checkpoint('phon_model.pt')
-        flair_embedding_forward = TransformerWordEmbeddings('bert-base-german-cased')
+        flair_embedding_forward = TransformerWordEmbeddings('bert-base-german-cased', subtoken_pooling='mean')
         self.stacked_embeddings = StackedEmbeddings([
             flair_embedding_forward,
         ])
