@@ -7,7 +7,7 @@ import torch
 from dp.phonemizer import Phonemizer
 import pyworld as pw
 from flair.data import Sentence
-from flair.embeddings import FlairEmbeddings, StackedEmbeddings
+from flair.embeddings import TransformerWordEmbeddings, StackedEmbeddings
 
 from utils.display import *
 from utils.dsp import *
@@ -42,11 +42,9 @@ class Preprocessor:
         self.lang = lang
         self.dsp = dsp
         self.phonemizer = Phonemizer.from_checkpoint('phon_model.pt')
-        flair_embedding_forward = FlairEmbeddings('de-forward')
-        flair_embedding_backward = FlairEmbeddings('de-backward')
+        flair_embedding_forward = TransformerWordEmbeddings('bert-base-german-cased')
         self.stacked_embeddings = StackedEmbeddings([
             flair_embedding_forward,
-            flair_embedding_backward
         ])
 
     def __call__(self, path: Path) -> Tuple[str, int, str]:
@@ -59,6 +57,7 @@ class Preprocessor:
         text = self.cleaner(text)
         sent = Sentence(text)
         print(text)
+        print([t.text + ' ' * t.whitespace_after for t in sent.tokens])
         phons = [self.phonemizer(t.text, lang='de') + ' ' * t.whitespace_after for t in sent.tokens]
         self.stacked_embeddings.embed(sent)
         text = ''.join(phons)
