@@ -43,10 +43,11 @@ class Preprocessor:
         self.dsp = dsp
         self.phonemizer = Phonemizer.from_checkpoint('phon_model.pt')
         flair_embedding_forward = FlairEmbeddings('de-forward')
+        flair_embedding_backward = FlairEmbeddings('de-backward')
         self.stacked_embeddings = StackedEmbeddings([
-            flair_embedding_forward
+            flair_embedding_forward,
+            flair_embedding_backward
         ])
-
 
     def __call__(self, path: Path) -> Tuple[str, int, str]:
         wav_id = path.stem
@@ -58,9 +59,9 @@ class Preprocessor:
         text = self.cleaner(text)
         sent = Sentence(text)
         print(text)
-        phons = [self.phonemizer(t.text, lang='de') for t in sent.tokens]
+        phons = [self.phonemizer(t.text, lang='de') + ' ' * t.whitespace_after for t in sent.tokens]
         self.stacked_embeddings.embed(sent)
-        text = ' '.join(phons)
+        text = ''.join(phons)
         print(text)
         embs = [t.embedding for t in sent.tokens]
         torch.save(embs, self.paths.flair_word/f'{wav_id}.pt')
