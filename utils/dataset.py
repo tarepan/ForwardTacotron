@@ -265,7 +265,7 @@ class ForwardDataset(Dataset):
         dur = np.load(str(self.path/'alg'/f'{item_id}.npy'))
         pitch = np.load(str(self.path/'phon_pitch'/f'{item_id}.npy'))
         energy = np.load(str(self.path/'phon_energy'/f'{item_id}.npy'))
-        x_f = torch.load(self.path/'flair_char'/f'{item_id}.pt')
+        x_f = torch.load(self.path/'flair_char'/f'{item_id}.pt', map_location=torch.device('cpu'))
         return {'x': x, 'mel': mel, 'item_id': item_id, 'x_len': len(x),
                 'mel_len': mel_len, 'dur': dur, 'pitch': pitch, 'energy': energy, 'x_flair': x_f}
 
