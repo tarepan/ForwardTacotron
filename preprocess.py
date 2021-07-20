@@ -66,7 +66,7 @@ class Preprocessor:
         torch.save(embs, self.paths.flair_word/f'{wav_id}.pt')
         embs_char = []
         for word, emb in zip(phons, embs):
-            embs_char.extend([emb]*(len(word)+1))
+            embs_char.extend([emb]*(len(word)))
         embs_char = embs_char[:len(text)]
         embs_char = torch.stack(embs_char)
         print(f'{len(text)} {embs_char.size()}')
