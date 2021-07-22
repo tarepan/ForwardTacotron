@@ -1,6 +1,6 @@
 
 voc_model_id: 'ljspeech_voc'
-tts_model_id: 'asvoice2_jit_add_bert_tts'
+tts_model_id: 'asvoice2_jit_add_flair_tts'
 
 data_path: 'data_bert/' # output data path
 

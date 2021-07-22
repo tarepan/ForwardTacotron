@@ -42,9 +42,11 @@ class Preprocessor:
         self.lang = lang
         self.dsp = dsp
         self.phonemizer = Phonemizer.from_checkpoint('phon_model.pt')
-        flair_embedding_forward = TransformerWordEmbeddings('bert-base-german-cased', subtoken_pooling='mean')
+        flair_embedding_forward = FlairEmbeddings('de-forward')
+        flair_embedding_backward = FlairEmbeddings('de-backward')
         self.stacked_embeddings = StackedEmbeddings([
             flair_embedding_forward,
+            flair_embedding_backward
         ])
 
     def __call__(self, path: Path) -> Tuple[str, int, str]:
