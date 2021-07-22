@@ -69,9 +69,9 @@ class Preprocessor:
         embs_char = []
         for word, emb in zip(phons, embs):
             embs_char.extend([emb]*(len(word)))
+        print(f'{len(text)} {len(embs_char)}')
         embs_char = embs_char[:len(text)]
         embs_char = torch.stack(embs_char)
-        print(f'{len(text)} {embs_char.size()}')
         torch.save(embs_char, self.paths.flair_char/f'{wav_id}.pt')
 
         return wav_id, m.shape[-1], text
