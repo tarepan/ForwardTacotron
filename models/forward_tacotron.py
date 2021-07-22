@@ -32,6 +32,7 @@ class SeriesPredictor(nn.Module):
         super().__init__()
         self.embedding = Embedding(num_chars, emb_dim)
         self.bottle = nn.Linear(768, 32)
+
         self.convs = torch.nn.ModuleList([
             BatchNormConv(emb_dim + 32, conv_dims, 5, relu=True),
             BatchNormConv(conv_dims, conv_dims, 5, relu=True),
@@ -47,6 +48,8 @@ class SeriesPredictor(nn.Module):
                 alpha: float = 1.0) -> torch.Tensor:
         x = self.embedding(x)
         x_flair = self.bottle(x_flair)
+        x_flair = F.dropout(x_flair, p=0.5, training=self.training)
+
         x = torch.cat([x, x_flair], dim=-1)
         x = x.transpose(1, 2)
         for conv in self.convs:
@@ -159,13 +162,13 @@ class ForwardTacotron(nn.Module):
         if self.training:
             self.step += 1
 
-
         dur_hat = self.dur_pred(x, x_flair).squeeze(-1)
         pitch_hat = self.pitch_pred(x, x_flair).transpose(1, 2)
         energy_hat = self.energy_pred(x, x_flair).transpose(1, 2)
 
         x = self.embedding(x)
         x_flair = self.bottle(x_flair)
+        x_flair = F.dropout(x_flair, p=0.5, training=self.training)
         x = torch.cat([x, x_flair], dim=-1)
 
         x = x.transpose(1, 2)
