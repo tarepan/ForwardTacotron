@@ -120,7 +120,7 @@ def create_align_features(model: Tacotron,
         batch = to_device(batch, device=device)
         model.decoder.prenet.train()
         with torch.no_grad():
-            _, _, att_batch_tiled = model(batch['x'].repeat(32, 1), batch['mel'].repeat(32, 1, 1))
+            _, _, att_batch_tiled = model(batch['x'].repeat(64, 1), batch['mel'].repeat(64, 1, 1))
         att_batch = torch.mean(att_batch_tiled, dim=0).unsqueeze(0)
         align_score, sharp_score = attention_score(att_batch, batch['mel_len'], r=1)
         att_batch = np_now(att_batch)
