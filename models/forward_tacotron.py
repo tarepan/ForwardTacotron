@@ -6,8 +6,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import Embedding, LayerNorm, TransformerEncoder, MultiheadAttention
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
+from torch.nn import Embedding, LayerNorm, TransformerEncoder, MultiheadAttention, Sequential
+from torch.nn.utils.rnn import pad_sequence
 
 from models.common_layers import CBHG
 from utils.text.symbols import phonemes
@@ -84,8 +84,8 @@ class TransformerEncoderConvLayer(nn.Module):
         self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout)
         # Implementation of Feedforward model
         self.dropout = nn.Dropout(dropout)
-        self.conv1 = nn.Conv1d(d_model, dim_feedforward, 3, stride=1, padding=1)
-        self.conv2 = nn.Conv1d(dim_feedforward, d_model, 3, stride=1, padding=1)
+        self.conv1 = nn.Conv1d(d_model, dim_feedforward, 9, stride=1, padding=4)
+        self.conv2 = nn.Conv1d(dim_feedforward, d_model, 1, stride=1, padding=0)
 
         self.norm1 = LayerNorm(d_model)
         self.norm2 = LayerNorm(d_model)
@@ -159,24 +159,29 @@ class ForwardTransformer(torch.nn.Module):
 class SeriesPredictor(nn.Module):
 
     def __init__(self,
-                 num_chars: int,
                  d_model: int,
-                 n_heads: int,
-                 d_fft: int,
-                 layers: int,
+                 conv_dim: int,
                  dropout=0.1):
         super().__init__()
-        self.embedding = Embedding(num_chars, d_model)
-        self.transformer = ForwardTransformer(heads=n_heads, dropout=dropout,
-                                              d_model=d_model, d_fft=d_fft, layers=layers)
-        self.lin = nn.Linear(d_model, 1)
+        self.conv1 = nn.Conv1d(d_model, conv_dim, kernel_size=3, padding=1)
+        self.lnorm1 = nn.LayerNorm(conv_dim)
+        self.conv2 = nn.Conv1d(d_model, conv_dim, kernel_size=3, padding=1)
+        self.lnorm2 = nn.LayerNorm(conv_dim)
+        self.lin = nn.Linear(conv_dim, 1)
 
     def forward(self,
                 x: torch.Tensor,
-                src_pad_mask=None,
                 alpha: float = 1.0) -> torch.Tensor:
-        x = self.embedding(x)
-        x = self.transformer(x, src_pad_mask=src_pad_mask)
+        x = x.transpose(1, 2)
+        x = self.conv1(x)
+        x = torch.relu(x)
+        x = x.transpose(1, 2)
+        x = self.lnorm1(x)
+        x = x.transpose(1, 2)
+        x = self.conv2(x)
+        x = torch.relu(x)
+        x = x.transpose(1, 2)
+        x = self.lnorm2(x)
         x = self.lin(x)
         return x / alpha
 
@@ -201,27 +206,10 @@ class ForwardTacotron(nn.Module):
 
     def __init__(self,
                  num_chars: int,
-                 durpred_dropout: float,
-                 durpred_d_model: int,
-                 durpred_n_heads: int,
-                 durpred_layers: int,
-                 durpred_d_fft: int,
-
-                 pitch_dropout: float,
-                 pitch_d_model: int,
-                 pitch_n_heads: int,
-                 pitch_layers: int,
-                 pitch_d_fft: int,
-
-                 energy_dropout: float,
-                 energy_d_model: int,
-                 energy_n_heads: int,
-                 energy_layers: int,
-                 energy_d_fft: int,
-
+                 series_dropout: float,
+                 series_conv_dim: int,
                  pitch_strength: float,
                  energy_strength: float,
-
                  postnet_layers: int,
                  postnet_heads: int,
                  postnet_fft: int,
@@ -236,24 +224,15 @@ class ForwardTacotron(nn.Module):
         super().__init__()
         self.padding_value = padding_value
         self.lr = LengthRegulator()
-        self.dur_pred = SeriesPredictor(num_chars=num_chars,
-                                        d_model=durpred_d_model,
-                                        n_heads=durpred_n_heads,
-                                        layers=durpred_layers,
-                                        d_fft=durpred_d_fft,
-                                        dropout=durpred_dropout)
-        self.pitch_pred = SeriesPredictor(num_chars=num_chars,
-                                          d_model=pitch_d_model,
-                                          n_heads=pitch_n_heads,
-                                          layers=pitch_layers,
-                                          d_fft=pitch_d_fft,
-                                          dropout=pitch_dropout)
-        self.energy_pred = SeriesPredictor(num_chars=num_chars,
-                                           d_model=energy_d_model,
-                                           n_heads=energy_n_heads,
-                                           layers=energy_layers,
-                                           d_fft=energy_d_fft,
-                                           dropout=energy_dropout)
+        self.dur_pred = SeriesPredictor(d_model,
+                                        conv_dim=series_conv_dim,
+                                        dropout=series_dropout)
+        self.pitch_pred = SeriesPredictor(d_model,
+                                          conv_dim=series_conv_dim,
+                                          dropout=series_dropout)
+        self.energy_pred = SeriesPredictor(d_model,
+                                           conv_dim=series_conv_dim,
+                                           dropout=series_dropout)
 
         self.embedding = Embedding(num_embeddings=num_chars, embedding_dim=d_model)
 
@@ -282,12 +261,13 @@ class ForwardTacotron(nn.Module):
             self.step += 1
 
         len_mask = make_len_mask(x.transpose(0, 1))
-        dur_hat = self.dur_pred(x, src_pad_mask=len_mask).squeeze(-1)
-        pitch_hat = self.pitch_pred(x, src_pad_mask=len_mask).transpose(1, 2)
-        energy_hat = self.energy_pred(x, src_pad_mask=len_mask).transpose(1, 2)
 
         x = self.embedding(x)
         x = self.prenet(x, src_pad_mask=len_mask)
+
+        dur_hat = self.dur_pred(x).squeeze(-1)
+        pitch_hat = self.pitch_pred(x).transpose(1, 2)
+        energy_hat = self.energy_pred(x).transpose(1, 2)
 
         pitch_proj = self.pitch_proj(pitch)
         pitch_proj = pitch_proj.transpose(1, 2)
@@ -321,6 +301,9 @@ class ForwardTacotron(nn.Module):
                  energy_function: Callable[[torch.Tensor], torch.Tensor] = lambda x: x) -> Dict[str, np.array]:
         self.eval()
 
+        x = self.embedding(x)
+        x = self.prenet(x, src_pad_mask=None)
+
         dur = self.dur_pred(x, alpha=alpha)
         dur = dur.squeeze(2)
 
@@ -333,9 +316,6 @@ class ForwardTacotron(nn.Module):
 
         energy_hat = self.energy_pred(x).transpose(1, 2)
         energy_hat = energy_function(energy_hat)
-
-        x = self.embedding(x)
-        x = self.prenet(x, src_pad_mask=None)
 
         pitch_proj = self.pitch_proj(pitch_hat)
         pitch_proj = pitch_proj.transpose(1, 2)
