@@ -168,6 +168,7 @@ class SeriesPredictor(nn.Module):
         self.conv2 = nn.Conv1d(d_model, conv_dim, kernel_size=3, padding=1)
         self.lnorm2 = nn.LayerNorm(conv_dim)
         self.lin = nn.Linear(conv_dim, 1)
+        self.dropout = dropout
 
     def forward(self,
                 x: torch.Tensor,
@@ -177,11 +178,13 @@ class SeriesPredictor(nn.Module):
         x = torch.relu(x)
         x = x.transpose(1, 2)
         x = self.lnorm1(x)
+        x = F.dropout(x, p=self.dropout, training=self.training)
         x = x.transpose(1, 2)
         x = self.conv2(x)
         x = torch.relu(x)
         x = x.transpose(1, 2)
         x = self.lnorm2(x)
+        x = F.dropout(x, p=self.dropout, training=self.training)
         x = self.lin(x)
         return x / alpha
 
