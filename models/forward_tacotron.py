@@ -268,9 +268,10 @@ class ForwardTacotron(nn.Module):
         x = self.embedding(x)
         x = self.prenet(x, src_pad_mask=len_mask)
 
-        dur_hat = self.dur_pred(x).squeeze(-1)
-        pitch_hat = self.pitch_pred(x).transpose(1, 2)
-        energy_hat = self.energy_pred(x).transpose(1, 2)
+        x_det = x.detach()
+        dur_hat = self.dur_pred(x_det).squeeze(-1)
+        pitch_hat = self.pitch_pred(x_det).transpose(1, 2)
+        energy_hat = self.energy_pred(x_det).transpose(1, 2)
 
         pitch_proj = self.pitch_proj(pitch)
         pitch_proj = pitch_proj.transpose(1, 2)
