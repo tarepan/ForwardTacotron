@@ -281,7 +281,12 @@ class FastPitch(nn.Module):
         x = self.lin(x)
         x = x.transpose(1, 2)
 
-        x_post = self.pad(x, mel.size(2))
+        x_post = self.postnet(x)
+        x_post = self.lin_post(x_post)
+
+        x_post = x_post.transpose(1, 2)
+
+        x_post = self.pad(x_post, mel.size(2))
         x = self.pad(x, mel.size(2))
 
         return {'mel': x, 'mel_post': x_post,
@@ -321,11 +326,14 @@ class FastPitch(nn.Module):
         x = self.lr(x, dur)
 
         x = self.main(x, src_pad_mask=None)
-
-        x = self.lin(x)
         x = x.transpose(1, 2)
 
-        x, x_post, dur = x.squeeze(), x.squeeze(), dur.squeeze()
+        x_post = self.postnet(x)
+        x_post = self.lin_post(x_post)
+
+        x_post = x_post.transpose(1, 2)
+
+        x, x_post, dur = x.squeeze(), x_post.squeeze(), dur.squeeze()
         x = x.cpu().data.numpy()
         x_post = x_post.cpu().data.numpy()
         dur = dur.cpu().data.numpy()
