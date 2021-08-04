@@ -232,7 +232,7 @@ class FastPitch(nn.Module):
                             num_highways=postnet_num_highways,
                             dropout=postnet_dropout)
         self.lin = torch.nn.Linear(d_model, n_mels)
-        self.lin_post = torch.nn.Linear(postnet_dims, n_mels)
+        self.lin_post = torch.nn.Linear(2 * postnet_dims, n_mels)
         self.register_buffer('step', torch.zeros(1, dtype=torch.long))
         self.pitch_strength = pitch_strength
         self.energy_strength = energy_strength
