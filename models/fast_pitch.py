@@ -326,6 +326,7 @@ class FastPitch(nn.Module):
         x = self.lr(x, dur)
 
         x = self.main(x, src_pad_mask=None)
+        x = self.lin(x)
         x = x.transpose(1, 2)
 
         x_post = self.postnet(x)
