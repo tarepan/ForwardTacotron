@@ -157,10 +157,15 @@ fast_pitch:
     prenet_fft: 1024
     prenet_dropout: 0.1
 
-    postnet_layers: 4
-    postnet_heads: 2
-    postnet_fft: 1024
-    postnet_dropout: 0.1
+    main_layers: 4
+    main_heads: 2
+    main_fft: 1024
+    main_dropout: 0.1
+
+    postnet_dims: 256
+    postnet_k: 8
+    postnet_num_highways: 4
+    postnet_dropout: 0.
 
 
   training:

@@ -6,6 +6,7 @@ import torch
 
 from models.fatchord_version import WaveRNN
 from models.forward_tacotron import ForwardTacotron
+from utils.checkpoints import init_tts_model
 from utils.display import simple_table
 from utils.dsp import DSP
 from utils.files import read_config
@@ -14,13 +15,14 @@ from utils.text.cleaners import Cleaner
 from utils.text.tokenizer import Tokenizer
 
 
-def load_forward_taco(checkpoint_path: str) -> Tuple[ForwardTacotron, Dict[str, Any]]:
+def load_tts_model(checkpoint_path: str) -> Tuple[ForwardTacotron, Dict[str, Any]]:
     print(f'Loading tts checkpoint {checkpoint_path}')
     checkpoint = torch.load(checkpoint_path, map_location=torch.device('cpu'))
     config = checkpoint['config']
-    tts_model = ForwardTacotron.from_config(config)
+    tts_model = init_tts_model(config)
     tts_model.load_state_dict(checkpoint['model'])
-    print(f'Loaded forward taco with step {tts_model.get_step()}')
+    print(f'Initialized tts model: {tts_model}')
+    print(f'Restored model with step {tts_model.get_step()}')
     return tts_model, config
 
 
@@ -67,7 +69,7 @@ if __name__ == '__main__':
         paths = Paths(config['data_path'], config['voc_model_id'], config['tts_model_id'])
         checkpoint_path = paths.forward_checkpoints / 'latest_model.pt'
 
-    tts_model, config = load_forward_taco(checkpoint_path)
+    tts_model, config = load_tts_model(checkpoint_path)
     dsp = DSP.from_config(config)
 
     voc_model, voc_dsp = None, None
@@ -108,8 +110,7 @@ if __name__ == '__main__':
 
         wav_name = f'{i}_forward_{tts_k}k_alpha{args.alpha}_amp{args.amp}_{args.vocoder}'
         with torch.no_grad():
-            gen = tts_model.generate_jit(x=x,
-                                     alpha=args.alpha)
+            gen = tts_model.generate(x=x, alpha=args.alpha)
 
         m = gen['mel_post'].cpu().numpy()
         if args.vocoder == 'melgan':

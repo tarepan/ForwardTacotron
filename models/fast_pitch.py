@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Embedding, LayerNorm, TransformerEncoder, MultiheadAttention
 
-from models.common_layers import LengthRegulator
+from models.common_layers import LengthRegulator, CBHG
 from utils.text.symbols import phonemes
 
 
@@ -181,11 +181,15 @@ class FastPitch(nn.Module):
                  prenet_heads: int,
                  prenet_fft: int,
                  prenet_dropout: float,
-                 postnet_layers: int,
-                 postnet_heads: int,
-                 postnet_fft: int,
-                 postnet_dropout: float,
+                 main_layers: int,
+                 main_heads: int,
+                 main_fft: int,
+                 main_dropout: float,
                  n_mels: int,
+                 postnet_num_highways,
+                 postnet_dims: int,
+                 postnet_k: int,
+                 postnet_dropout,
                  padding_value=-11.5129):
         super().__init__()
         self.padding_value = padding_value
@@ -218,10 +222,17 @@ class FastPitch(nn.Module):
         self.prenet = ForwardTransformer(heads=prenet_heads, dropout=prenet_dropout,
                                          conv1_kernel=conv1_kernel, conv2_kernel=conv2_kernel,
                                          d_model=d_model, d_fft=prenet_fft, layers=prenet_layers)
-        self.postnet = ForwardTransformer(heads=postnet_heads, dropout=postnet_dropout,
+        self.main = ForwardTransformer(heads=main_heads, dropout=main_dropout,
                                           conv1_kernel=conv1_kernel, conv2_kernel=conv2_kernel,
-                                          d_model=d_model, d_fft=postnet_fft, layers=postnet_layers)
+                                          d_model=d_model, d_fft=main_fft, layers=main_layers)
+        self.postnet = CBHG(K=postnet_k,
+                            in_channels=n_mels,
+                            channels=postnet_dims,
+                            proj_channels=[postnet_dims, n_mels],
+                            num_highways=postnet_num_highways,
+                            dropout=postnet_dropout)
         self.lin = torch.nn.Linear(d_model, n_mels)
+        self.lin_post = torch.nn.Linear(postnet_dims, n_mels)
         self.register_buffer('step', torch.zeros(1, dtype=torch.long))
         self.pitch_strength = pitch_strength
         self.energy_strength = energy_strength
@@ -265,7 +276,7 @@ class FastPitch(nn.Module):
         for i, mel_len in enumerate(mel_lens):
             len_mask[i, mel_len:] = True
 
-        x = self.postnet(x, src_pad_mask=len_mask)
+        x = self.main(x, src_pad_mask=len_mask)
 
         x = self.lin(x)
         x = x.transpose(1, 2)
@@ -309,7 +320,7 @@ class FastPitch(nn.Module):
 
         x = self.lr(x, dur)
 
-        x = self.postnet(x, src_pad_mask=None)
+        x = self.main(x, src_pad_mask=None)
 
         x = self.lin(x)
         x = x.transpose(1, 2)
