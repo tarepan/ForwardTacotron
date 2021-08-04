@@ -1,6 +1,6 @@
 
 voc_model_id: 'ljspeech_voc'
-tts_model_id: 'asvoice2_jit_add_fastpitch2_tts'
+tts_model_id: 'asvoice2_fastpitch_post_tts'
 data_path: 'data/' # output data path
 
 tts_model: 'fast_pitch' # choose between [forward_tacotron, fast_pitch]
