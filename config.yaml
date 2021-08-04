@@ -162,9 +162,9 @@ fast_pitch:
     main_fft: 1024
     main_dropout: 0.1
 
-    postnet_dims: 256
+    postnet_dims: 128
     postnet_k: 8
-    postnet_num_highways: 4
+    postnet_num_highways: 2
     postnet_dropout: 0.
 
 
