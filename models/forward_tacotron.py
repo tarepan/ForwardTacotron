@@ -160,12 +160,10 @@ class ForwardTacotron(nn.Module):
         x = x.transpose(1, 2)
         x = self.prenet(x)
 
-        pitch_proj = self.pitch_proj(pitch)
-        pitch_proj = pitch_proj.transpose(1, 2)
+        pitch_proj = self.pitch_proj(pitch.transpose(1, 2))
         x = x + pitch_proj * self.pitch_strength
 
-        energy_proj = self.energy_proj(energy)
-        energy_proj = energy_proj.transpose(1, 2)
+        energy_proj = self.energy_proj(energy.transpose(1, 2))
         x = x + energy_proj * self.energy_strength
 
         x = self.lr(x, dur)
@@ -237,12 +235,10 @@ class ForwardTacotron(nn.Module):
         x = x.transpose(1, 2)
         x = self.prenet(x)
 
-        pitch_proj = self.pitch_proj(pitch_hat)
-        pitch_proj = pitch_proj.transpose(1, 2)
+        pitch_proj = self.pitch_proj(pitch_hat.transpose(1, 2))
         x = x + pitch_proj * self.pitch_strength
 
-        energy_proj = self.energy_proj(energy_hat)
-        energy_proj = energy_proj.transpose(1, 2)
+        energy_proj = self.energy_proj(energy_hat.transpose(1, 2))
         x = x + energy_proj * self.energy_strength
 
         x = self.lr(x, dur_hat)
