@@ -69,6 +69,7 @@ class ForwardTrainer:
         pitch_loss_avg = Averager()
         device = next(model.parameters()).device  # use same device as model parameters
         best_dur_loss, best_pitch_loss, best_energy_loss = 99, 99, 99
+        best_model = deepcopy(model)
         best_dur_model = deepcopy(model.dur_pred.state_dict())
         best_pitch_model = deepcopy(model.pitch_pred.state_dict())
         best_energy_model = deepcopy(model.energy_pred.state_dict())
@@ -124,16 +125,12 @@ class ForwardTrainer:
                     save_checkpoint(model=model, optim=optimizer, config=self.config,
                                     path=self.paths.forward_checkpoints / f'forward_step{k}k.pt')
 
-                    best_model = deepcopy(model)
-                    best_model.dur_pred.load_state_dict(best_dur_model)
-                    best_model.pitch_pred.load_state_dict(best_pitch_model)
-                    best_model.energy_pred.load_state_dict(best_energy_model)
-
                     save_checkpoint(model=best_model, optim=optimizer, config=self.config,
                                     path=self.paths.forward_checkpoints / f'best_forward_step{k}k.pt')
 
                 if step % self.train_cfg['plot_every'] == 0:
                     self.generate_plots(model, session)
+                    self.generate_plots(best_model, session, prefix='Best_')
 
                 self.writer.add_scalar('Mel_Loss/train', m1_loss + m2_loss, model.get_step())
                 self.writer.add_scalar('Pitch_Loss/train', pitch_loss, model.get_step())
@@ -149,6 +146,7 @@ class ForwardTrainer:
             self.writer.add_scalar('Duration_Loss/val', val_out['dur_loss'], model.get_step())
             self.writer.add_scalar('Pitch_Loss/val', val_out['pitch_loss'], model.get_step())
             self.writer.add_scalar('Energy_Loss/val', val_out['energy_loss'], model.get_step())
+
             if val_out['dur_loss'] < best_dur_loss:
                 best_dur_loss = val_out['dur_loss']
                 best_dur_model = deepcopy(model.dur_pred.state_dict())
@@ -158,6 +156,11 @@ class ForwardTrainer:
             if val_out['energy_loss'] < best_energy_loss:
                 best_energy_loss = val_out['energy_loss']
                 best_energy_model = deepcopy(model.energy_pred.state_dict())
+
+            best_model = deepcopy(model)
+            best_model.dur_pred.load_state_dict(best_dur_model)
+            best_model.pitch_pred.load_state_dict(best_pitch_model)
+            best_model.energy_pred.load_state_dict(best_energy_model)
 
             save_checkpoint(model=model, optim=optimizer, config=self.config,
                             path=self.paths.forward_checkpoints / 'latest_model.pt')
@@ -195,7 +198,7 @@ class ForwardTrainer:
         }
 
     @ignore_exception
-    def generate_plots(self, model: ForwardTacotron, session: TTSSession) -> None:
+    def generate_plots(self, model: ForwardTacotron, session: TTSSession, prefix='') -> None:
         model.eval()
         device = next(model.parameters()).device
         batch = session.val_sample
@@ -214,22 +217,22 @@ class ForwardTrainer:
         energy_fig = plot_pitch(np_now(batch['energy'][0]))
         energy_gta_fig = plot_pitch(np_now(pred['energy'].squeeze()[0]))
 
-        self.writer.add_figure('Pitch/target', pitch_fig, model.step)
-        self.writer.add_figure('Pitch/ground_truth_aligned', pitch_gta_fig, model.step)
-        self.writer.add_figure('Energy/target', energy_fig, model.step)
-        self.writer.add_figure('Energy/ground_truth_aligned', energy_gta_fig, model.step)
-        self.writer.add_figure('Ground_Truth_Aligned/target', m_target_fig, model.step)
-        self.writer.add_figure('Ground_Truth_Aligned/linear', m1_hat_fig, model.step)
-        self.writer.add_figure('Ground_Truth_Aligned/postnet', m2_hat_fig, model.step)
+        self.writer.add_figure(prefix + 'Pitch/target', pitch_fig, model.step)
+        self.writer.add_figure(prefix + 'Pitch/ground_truth_aligned', pitch_gta_fig, model.step)
+        self.writer.add_figure(prefix + 'Energy/target', energy_fig, model.step)
+        self.writer.add_figure(prefix + 'Energy/ground_truth_aligned', energy_gta_fig, model.step)
+        self.writer.add_figure(prefix + 'Ground_Truth_Aligned/target', m_target_fig, model.step)
+        self.writer.add_figure(prefix + 'Ground_Truth_Aligned/linear', m1_hat_fig, model.step)
+        self.writer.add_figure(prefix + 'Ground_Truth_Aligned/postnet', m2_hat_fig, model.step)
 
         m2_hat_wav = self.dsp.griffinlim(m2_hat)
         target_wav = self.dsp.griffinlim(m_target)
 
         self.writer.add_audio(
-            tag='Ground_Truth_Aligned/target_wav', snd_tensor=target_wav,
+            tag=prefix + 'Ground_Truth_Aligned/target_wav', snd_tensor=target_wav,
             global_step=model.step, sample_rate=self.dsp.sample_rate)
         self.writer.add_audio(
-            tag='Ground_Truth_Aligned/postnet_wav', snd_tensor=m2_hat_wav,
+            tag=prefix + 'Ground_Truth_Aligned/postnet_wav', snd_tensor=m2_hat_wav,
             global_step=model.step, sample_rate=self.dsp.sample_rate)
 
         gen = model.generate(batch['x'][0:1, :batch['x_len'][0]])
@@ -242,17 +245,17 @@ class ForwardTrainer:
         pitch_gen_fig = plot_pitch(np_now(gen['pitch'].squeeze()))
         energy_gen_fig = plot_pitch(np_now(gen['energy'].squeeze()))
 
-        self.writer.add_figure('Pitch/generated', pitch_gen_fig, model.step)
-        self.writer.add_figure('Energy/generated', energy_gen_fig, model.step)
-        self.writer.add_figure('Generated/target', m_target_fig, model.step)
-        self.writer.add_figure('Generated/linear', m1_hat_fig, model.step)
-        self.writer.add_figure('Generated/postnet', m2_hat_fig, model.step)
+        self.writer.add_figure(prefix + 'Pitch/generated', pitch_gen_fig, model.step)
+        self.writer.add_figure(prefix + 'Energy/generated', energy_gen_fig, model.step)
+        self.writer.add_figure(prefix + 'Generated/target', m_target_fig, model.step)
+        self.writer.add_figure(prefix + 'Generated/linear', m1_hat_fig, model.step)
+        self.writer.add_figure(prefix + 'Generated/postnet', m2_hat_fig, model.step)
 
         m2_hat_wav = self.dsp.griffinlim(m2_hat)
 
         self.writer.add_audio(
-            tag='Generated/target_wav', snd_tensor=target_wav,
+            tag=prefix + 'Generated/target_wav', snd_tensor=target_wav,
             global_step=model.step, sample_rate=self.dsp.sample_rate)
         self.writer.add_audio(
-            tag='Generated/postnet_wav', snd_tensor=m2_hat_wav,
+            tag=prefix + 'Generated/postnet_wav', snd_tensor=m2_hat_wav,
             global_step=model.step, sample_rate=self.dsp.sample_rate)
