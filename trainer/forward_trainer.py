@@ -1,4 +1,5 @@
 import time
+from copy import deepcopy
 from typing import Tuple, Dict, Any, Union
 
 import torch
@@ -67,6 +68,11 @@ class ForwardTrainer:
         duration_avg = Averager()
         pitch_loss_avg = Averager()
         device = next(model.parameters()).device  # use same device as model parameters
+        best_dur_loss, best_pitch_loss, best_energy_loss = 99, 99, 99
+        best_dur_model = deepcopy(model.dur_pred.state_dict())
+        best_pitch_model = deepcopy(model.pitch_pred.state_dict())
+        best_energy_model = deepcopy(model.energy_pred.state_dict())
+
         for e in range(1, epochs + 1):
             for i, batch in enumerate(session.train_set, 1):
                 batch = to_device(batch, device=device)
@@ -118,6 +124,14 @@ class ForwardTrainer:
                     save_checkpoint(model=model, optim=optimizer, config=self.config,
                                     path=self.paths.forward_checkpoints / f'forward_step{k}k.pt')
 
+                    best_model = deepcopy(model)
+                    best_model.dur_pred.load_state_dict(best_dur_model)
+                    best_model.pitch_pred.load_state_dict(best_pitch_model)
+                    best_model.energy_pred.load_state_dict(best_energy_model)
+
+                    save_checkpoint(model=best_model, optim=optimizer, config=self.config,
+                                    path=self.paths.forward_checkpoints / f'best_forward_step{k}k.pt')
+
                 if step % self.train_cfg['plot_every'] == 0:
                     self.generate_plots(model, session)
 
@@ -135,6 +149,16 @@ class ForwardTrainer:
             self.writer.add_scalar('Duration_Loss/val', val_out['dur_loss'], model.get_step())
             self.writer.add_scalar('Pitch_Loss/val', val_out['pitch_loss'], model.get_step())
             self.writer.add_scalar('Energy_Loss/val', val_out['energy_loss'], model.get_step())
+            if val_out['dur_loss'] < best_dur_loss:
+                best_dur_loss = val_out['dur_loss']
+                best_dur_model = deepcopy(model.dur_pred.state_dict())
+            if val_out['pitch_loss'] < best_pitch_loss:
+                best_pitch_loss = val_out['pitch_loss']
+                best_pitch_model = deepcopy(model.pitch_pred.state_dict())
+            if val_out['energy_loss'] < best_energy_loss:
+                best_energy_loss = val_out['energy_loss']
+                best_energy_model = deepcopy(model.energy_pred.state_dict())
+
             save_checkpoint(model=model, optim=optimizer, config=self.config,
                             path=self.paths.forward_checkpoints / 'latest_model.pt')
 
