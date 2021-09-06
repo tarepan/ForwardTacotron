@@ -1,6 +1,6 @@
 
 voc_model_id: 'ljspeech_voc'
-tts_model_id: 'asvoice2_bert_tts'
+tts_model_id: 'asvoice2_bert_cross_tts'
 data_path: 'data/'                                        # output data path
 
 tts_model: 'fast_pitch'                             # choices: [forward_tacotron, fast_pitch]
@@ -165,7 +165,7 @@ fast_pitch:
 
   training:
     schedule:
-      - 1e-5,  5_000,  2         # progressive training schedule
+      - 1e-5,  5_000,  32         # progressive training schedule
       - 5e-5,  100_000,  32       # lr, step, batch_size
       - 2e-5,  300_000,  32
     dur_loss_factor: 0.1

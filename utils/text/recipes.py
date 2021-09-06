@@ -4,7 +4,7 @@ from typing import Union
 
 
 def ljspeech(path: Union[str, Path]):
-    if str(path).endswith('.csv'):
+    if str(path).endswith('.csv') or str(path).endswith('txt'):
         csv_file = path
     else:
         csv_file = get_files(path, extension='.csv')
