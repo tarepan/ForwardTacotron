@@ -208,7 +208,7 @@ class ForwardTrainer:
             tag='Ground_Truth_Aligned/postnet_wav', snd_tensor=m2_hat_wav,
             global_step=model.step, sample_rate=self.dsp.sample_rate)
 
-        gen = model.generate(batch['x'][0:1, :batch['x_len'][0]])
+        gen = model.generate(batch['x'][0:1, :batch['x_len'][0]], batch['bert'][0:1])
         m1_hat = np_now(gen['mel'].squeeze())
         m2_hat = np_now(gen['mel_post'].squeeze())
 

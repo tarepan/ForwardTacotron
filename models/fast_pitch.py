@@ -44,6 +44,10 @@ def make_token_len_mask(x: torch.Tensor) -> torch.Tensor:
     return (x == 0).transpose(0, 1)
 
 
+def make_bert_len_mask(x: torch.Tensor) -> torch.Tensor:
+    return (x.abs().sum(dim=-1) == 0).transpose(0, 1)
+
+
 def make_mel_len_mask(x: torch.Tensor, mel_lens: torch.Tensor) -> torch.Tensor:
     len_mask = torch.zeros((x.size(0), x.size(1))).bool().to(x.device)
     for i, mel_len in enumerate(mel_lens):
@@ -130,7 +134,7 @@ class FFTCrossBlock(nn.Module):
         src = src + self.dropout1(src2)
         src = self.norm1(src)
 
-        src2 = self.cross_attn(src, mem, mem,
+        src2, _ = self.cross_attn(src, mem, mem,
                                attn_mask=None,
                                key_padding_mask=mem_pad_mask)
 
@@ -217,7 +221,9 @@ class ForwardCrossTransformer(torch.nn.Module):
                 src_pad_mask: Optional[torch.Tensor] = None,
                 mem_pad_mask: Optional[torch.Tensor] = None) -> torch.Tensor:         # shape: [N, T]
         x = x.transpose(0, 1)        # shape: [T, N]
+        mem = mem.transpose(0, 1)        # shape: [T, N]
         x = self.pos_encoder(x)
+        mem = self.pos_encoder(mem)
         for layer in self.layers:
             x = layer(x, mem, src_pad_mask=src_pad_mask, mem_pad_mask=mem_pad_mask)
         x = self.norm(x)
@@ -251,10 +257,11 @@ class SeriesPredictor(nn.Module):
                 x: torch.Tensor,
                 bert: torch.Tensor,
                 src_pad_mask: Optional[torch.Tensor] = None,
+                mem_pad_mask: Optional[torch.Tensor] = None,
                 alpha: float = 1.0) -> torch.Tensor:
         x = self.embedding(x)
         bert = self.bert_squeeze(bert)
-        x = self.transformer(x, bert, src_pad_mask=src_pad_mask)
+        x = self.transformer(x, bert, src_pad_mask=src_pad_mask, mem_pad_mask=mem_pad_mask)
         x = self.lin(x)
         return x / alpha
 
@@ -351,9 +358,10 @@ class FastPitch(nn.Module):
             self.step += 1
 
         len_mask = make_token_len_mask(x.transpose(0, 1))
-        dur_hat = self.dur_pred(x, bert, src_pad_mask=len_mask).squeeze(-1)
-        pitch_hat = self.pitch_pred(x, bert, src_pad_mask=len_mask).transpose(1, 2)
-        energy_hat = self.energy_pred(x, bert, src_pad_mask=len_mask).transpose(1, 2)
+        bert_len_mask = make_bert_len_mask(bert.transpose(0, 1))
+        dur_hat = self.dur_pred(x, bert, src_pad_mask=len_mask, mem_pad_mask=bert_len_mask).squeeze(-1)
+        pitch_hat = self.pitch_pred(x, bert, src_pad_mask=len_mask, mem_pad_mask=bert_len_mask).transpose(1, 2)
+        energy_hat = self.energy_pred(x, bert, src_pad_mask=len_mask, mem_pad_mask=bert_len_mask).transpose(1, 2)
 
         x = self.embedding(x)
         x = self.prenet(x, src_pad_mask=len_mask)
@@ -391,13 +399,15 @@ class FastPitch(nn.Module):
                  energy_function: Callable[[torch.Tensor], torch.Tensor] = lambda x: x) -> Dict[str, torch.Tensor]:
         self.eval()
         with torch.no_grad():
-            dur_hat = self.dur_pred(x, bert, alpha=alpha)
+            bert_len_mask = make_bert_len_mask(bert.transpose(0, 1))
+
+            dur_hat = self.dur_pred(x, bert, mem_pad_mask=bert_len_mask, alpha=alpha)
             dur_hat = dur_hat.squeeze(2)
             if torch.sum(dur_hat.long()) <= 0:
                 torch.fill_(dur_hat, value=2.)
-            pitch_hat = self.pitch_pred(x, bert).transpose(1, 2)
+            pitch_hat = self.pitch_pred(x, bert, mem_pad_mask=bert_len_mask).transpose(1, 2)
             pitch_hat = pitch_function(pitch_hat)
-            energy_hat = self.energy_pred(x, bert).transpose(1, 2)
+            energy_hat = self.energy_pred(x, bert, mem_pad_mask=bert_len_mask).transpose(1, 2)
             energy_hat = energy_function(energy_hat)
             return self._generate_mel(x=x, dur_hat=dur_hat,
                                       pitch_hat=pitch_hat,

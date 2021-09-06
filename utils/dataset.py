@@ -267,7 +267,7 @@ class ForwardDataset(Dataset):
         energy = np.load(str(self.path/'phon_energy'/f'{item_id}.npy'))
         bert = torch.load(str(self.path/'bert'/f'{item_id}.pt'))
         return {'x': x, 'mel': mel, 'item_id': item_id, 'x_len': len(x),
-                'mel_len': mel_len, 'dur': dur, 'pitch': pitch, 'energy': energy}
+                'mel_len': mel_len, 'dur': dur, 'pitch': pitch, 'energy': energy, 'bert': bert}
 
     def __len__(self):
         return len(self.metadata)
@@ -299,6 +299,7 @@ def collate_tts(batch: List[Dict[str, Union[str, torch.tensor]]], r: int) -> Dic
     mel_lens = [b['mel_len'] for b in batch]
     mel_lens = torch.tensor(mel_lens)
 
+    bert = None
     dur, pitch, energy = None, None, None
     if 'dur' in batch[0]:
         dur = [pad1d(b['dur'][:max_x_len], max_x_len) for b in batch]
@@ -314,7 +315,7 @@ def collate_tts(batch: List[Dict[str, Union[str, torch.tensor]]], r: int) -> Dic
         energy = torch.tensor(energy).float()
     if 'bert' in batch[0]:
         bert = [b['bert'] for b in batch]
-        bert = pad_sequence(bert)
+        bert = pad_sequence(bert, batch_first=True)
 
     return {'x': text, 'mel': mel, 'item_id': item_id, 'x_len': x_len,
             'mel_len': mel_lens, 'dur': dur, 'pitch': pitch, 'energy': energy, 'bert': bert}
