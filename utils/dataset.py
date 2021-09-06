@@ -59,14 +59,14 @@ def get_vocoder_datasets(path: Path,
                            batch_size=batch_size,
                            num_workers=0,
                            shuffle=True,
-                           pin_memory=True)
+                           pin_memory=False)
 
     val_set = DataLoader(val_dataset,
                          collate_fn=voc_collator,
                          batch_size=batch_size,
                          num_workers=0,
                          shuffle=False,
-                         pin_memory=True)
+                         pin_memory=False)
 
     np.random.seed(42)  # fix numpy seed to obtain the same val set every time, I know its hacky
     val_set = [b for b in val_set]
@@ -76,7 +76,7 @@ def get_vocoder_datasets(path: Path,
                                  batch_size=1,
                                  num_workers=0,
                                  shuffle=False,
-                                 pin_memory=True)
+                                 pin_memory=False)
 
     val_set_samples = [s for i, s in enumerate(val_set_samples)
                        if i < num_gen_samples]
@@ -187,7 +187,7 @@ def get_tts_datasets(path: Path,
                            batch_size=batch_size,
                            sampler=train_sampler,
                            num_workers=0,
-                           pin_memory=True)
+                           pin_memory=False)
 
     val_set = DataLoader(val_dataset,
                          collate_fn=lambda batch: collate_tts(batch, r),
@@ -195,7 +195,7 @@ def get_tts_datasets(path: Path,
                          sampler=None,
                          num_workers=0,
                          shuffle=False,
-                         pin_memory=True)
+                         pin_memory=False)
 
     return train_set, val_set
 
