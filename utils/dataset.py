@@ -150,6 +150,16 @@ def get_tts_datasets(path: Path,
     val_data = filter_max_len(val_data, max_mel_len)
     train_len_original = len(train_data)
 
+    bert_ids = (path / 'bert').glob('**/*.pt')
+    bert_ids = {p.stem for p in bert_ids}
+
+    val_data_ids_copy = {v[0] for v in val_data}
+    train_data = [d for d in train_data if d[0] in bert_ids]
+    val_data = [d for d in val_data if d[0] in bert_ids]
+    val_data_ids = {v[0] for v in val_data}
+    removed = val_data_ids_copy.difference(val_data_ids)
+    print(f'Removed val data: {removed}')
+
     if model_type == 'forward' and filter_attention:
         attention_score_dict = unpickle_binary(path/'att_score_dict.pkl')
         train_data = filter_bad_attentions(dataset=train_data,
