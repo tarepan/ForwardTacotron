@@ -153,8 +153,13 @@ def get_tts_datasets(path: Path,
 
     bert_ids = (path / 'bert').glob('**/*.pt')
     bert_ids = {p.stem for p in bert_ids}
+
+    val_data_ids_copy = {v[0] for v in val_data}
     train_data = [d for d in train_data if d[0] in bert_ids]
     val_data = [d for d in val_data if d[0] in bert_ids]
+    val_data_ids = {v[0] for v in val_data}
+    removed = val_data_ids_copy.difference(val_data_ids)
+    print(f'Removed val data: {removed}')
 
     train_len_original = len(train_data)
 
