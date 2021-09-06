@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import Embedding, LayerNorm, MultiheadAttention
+from torch.nn import Embedding, LayerNorm, MultiheadAttention, Linear
 
 from models.common_layers import LengthRegulator
 from utils.text.symbols import phonemes
@@ -92,6 +92,61 @@ class FFTBlock(nn.Module):
         return src
 
 
+class FFTCrossBlock(nn.Module):
+
+    def __init__(self,
+                 d_model: int,
+                 nhead: int,
+                 conv1_kernel: int,
+                 conv2_kernel: int,
+                 d_fft: int,
+                 dropout: float = 0.1):
+        super().__init__()
+        self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout)
+        self.cross_attn = MultiheadAttention(d_model, nhead, dropout=dropout)
+        self.dropout = nn.Dropout(dropout)
+        self.conv1 = nn.Conv1d(in_channels=d_model, out_channels=d_fft,
+                               kernel_size=conv1_kernel, stride=1, padding=conv1_kernel//2)
+        self.conv2 = nn.Conv1d(in_channels=d_fft, out_channels=d_model,
+                               kernel_size=conv2_kernel, stride=1, padding=conv2_kernel//2)
+        self.norm1 = LayerNorm(d_model)
+        self.norm2 = LayerNorm(d_model)
+        self.norm3 = LayerNorm(d_model)
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
+        self.dropout3 = nn.Dropout(dropout)
+        self.activation = torch.nn.ReLU()
+
+    def forward(self,
+                src: torch.Tensor,
+                mem: torch.Tensor,
+                src_pad_mask: Optional[torch.Tensor] = None,
+                mem_pad_mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+
+        src2 = self.self_attn(src, src, src,
+                              attn_mask=None,
+                              key_padding_mask=src_pad_mask)[0]
+
+        src = src + self.dropout1(src2)
+        src = self.norm1(src)
+
+        src2 = self.cross_attn(src, mem, mem,
+                               attn_mask=None,
+                               key_padding_mask=mem_pad_mask)
+
+        src = src + self.dropout2(src2)
+        src = self.norm2(src)
+
+        src = src.transpose(0, 1).transpose(1, 2)
+        src2 = self.conv1(src)
+        src2 = self.activation(src2)
+        src2 = self.conv2(src2)
+        src = src + self.dropout3(src2)
+        src = src.transpose(1, 2).transpose(0, 1)
+        src = self.norm3(src)
+        return src
+
+
 class ForwardTransformer(torch.nn.Module):
 
     def __init__(self,
@@ -130,6 +185,46 @@ class ForwardTransformer(torch.nn.Module):
         return x
 
 
+class ForwardCrossTransformer(torch.nn.Module):
+
+    def __init__(self,
+                 d_model: int,
+                 d_fft: int,
+                 layers: int,
+                 heads: int,
+                 conv1_kernel: int,
+                 conv2_kernel: int,
+                 dropout: float = 0.1,
+                 ) -> None:
+        super().__init__()
+
+        self.d_model = d_model
+        self.pos_encoder = PositionalEncoding(d_model, dropout)
+        encoder_layer = FFTCrossBlock(d_model=d_model,
+                                      nhead=heads,
+                                      d_fft=d_fft,
+                                      conv1_kernel=conv1_kernel,
+                                      conv2_kernel=conv2_kernel,
+                                      dropout=dropout)
+        encoder_norm = LayerNorm(d_model)
+        self.layers = nn.ModuleList([copy.deepcopy(encoder_layer)
+                                     for _ in range(layers)])
+        self.norm = encoder_norm
+
+    def forward(self,
+                x: torch.Tensor,
+                mem: torch.Tensor,
+                src_pad_mask: Optional[torch.Tensor] = None,
+                mem_pad_mask: Optional[torch.Tensor] = None) -> torch.Tensor:         # shape: [N, T]
+        x = x.transpose(0, 1)        # shape: [T, N]
+        x = self.pos_encoder(x)
+        for layer in self.layers:
+            x = layer(x, mem, src_pad_mask=src_pad_mask, mem_pad_mask=mem_pad_mask)
+        x = self.norm(x)
+        x = x.transpose(0, 1)
+        return x
+
+
 class SeriesPredictor(nn.Module):
 
     def __init__(self,
@@ -140,22 +235,26 @@ class SeriesPredictor(nn.Module):
                  layers: int,
                  conv1_kernel: int,
                  conv2_kernel: int,
+                 bert_dim=768,
                  dropout=0.1):
         super().__init__()
         self.embedding = Embedding(num_chars, d_model)
-        self.transformer = ForwardTransformer(heads=n_heads, dropout=dropout,
-                                              d_model=d_model, d_fft=d_fft,
-                                              conv1_kernel=conv1_kernel,
-                                              conv2_kernel=conv2_kernel,
-                                              layers=layers)
+        self.bert_squeeze = Linear(bert_dim, d_model)
+        self.transformer = ForwardCrossTransformer(heads=n_heads, dropout=dropout,
+                                                   d_model=d_model, d_fft=d_fft,
+                                                   conv1_kernel=conv1_kernel,
+                                                   conv2_kernel=conv2_kernel,
+                                                   layers=layers)
         self.lin = nn.Linear(d_model, 1)
 
     def forward(self,
                 x: torch.Tensor,
+                bert: torch.Tensor,
                 src_pad_mask: Optional[torch.Tensor] = None,
                 alpha: float = 1.0) -> torch.Tensor:
         x = self.embedding(x)
-        x = self.transformer(x, src_pad_mask=src_pad_mask)
+        bert = self.bert_squeeze(bert)
+        x = self.transformer(x, bert, src_pad_mask=src_pad_mask)
         x = self.lin(x)
         return x / alpha
 
@@ -246,14 +345,15 @@ class FastPitch(nn.Module):
         mel_lens = batch['mel_len']
         pitch = batch['pitch'].unsqueeze(1)
         energy = batch['energy'].unsqueeze(1)
+        bert = batch['bert']
 
         if self.training:
             self.step += 1
 
         len_mask = make_token_len_mask(x.transpose(0, 1))
-        dur_hat = self.dur_pred(x, src_pad_mask=len_mask).squeeze(-1)
-        pitch_hat = self.pitch_pred(x, src_pad_mask=len_mask).transpose(1, 2)
-        energy_hat = self.energy_pred(x, src_pad_mask=len_mask).transpose(1, 2)
+        dur_hat = self.dur_pred(x, bert, src_pad_mask=len_mask).squeeze(-1)
+        pitch_hat = self.pitch_pred(x, bert, src_pad_mask=len_mask).transpose(1, 2)
+        energy_hat = self.energy_pred(x, bert, src_pad_mask=len_mask).transpose(1, 2)
 
         x = self.embedding(x)
         x = self.prenet(x, src_pad_mask=len_mask)
@@ -285,18 +385,19 @@ class FastPitch(nn.Module):
 
     def generate(self,
                  x: torch.Tensor,
+                 bert: torch.Tensor,
                  alpha=1.0,
                  pitch_function: Callable[[torch.Tensor], torch.Tensor] = lambda x: x,
                  energy_function: Callable[[torch.Tensor], torch.Tensor] = lambda x: x) -> Dict[str, torch.Tensor]:
         self.eval()
         with torch.no_grad():
-            dur_hat = self.dur_pred(x, alpha=alpha)
+            dur_hat = self.dur_pred(x, bert, alpha=alpha)
             dur_hat = dur_hat.squeeze(2)
             if torch.sum(dur_hat.long()) <= 0:
                 torch.fill_(dur_hat, value=2.)
-            pitch_hat = self.pitch_pred(x).transpose(1, 2)
+            pitch_hat = self.pitch_pred(x, bert).transpose(1, 2)
             pitch_hat = pitch_function(pitch_hat)
-            energy_hat = self.energy_pred(x).transpose(1, 2)
+            energy_hat = self.energy_pred(x, bert).transpose(1, 2)
             energy_hat = energy_function(energy_hat)
             return self._generate_mel(x=x, dur_hat=dur_hat,
                                       pitch_hat=pitch_hat,

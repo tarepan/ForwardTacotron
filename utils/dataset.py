@@ -1,4 +1,5 @@
 import torch
+from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data.sampler import Sampler
 from torch.utils.data import Dataset, DataLoader
 from typing import List, Dict, Union, Tuple
@@ -264,6 +265,7 @@ class ForwardDataset(Dataset):
         dur = np.load(str(self.path/'alg'/f'{item_id}.npy'))
         pitch = np.load(str(self.path/'phon_pitch'/f'{item_id}.npy'))
         energy = np.load(str(self.path/'phon_energy'/f'{item_id}.npy'))
+        bert = torch.load(str(self.path/'bert'/f'{item_id}.pt'))
         return {'x': x, 'mel': mel, 'item_id': item_id, 'x_len': len(x),
                 'mel_len': mel_len, 'dur': dur, 'pitch': pitch, 'energy': energy}
 
@@ -310,9 +312,12 @@ def collate_tts(batch: List[Dict[str, Union[str, torch.tensor]]], r: int) -> Dic
         energy = [pad1d(b['energy'][:max_x_len], max_x_len) for b in batch]
         energy = np.stack(energy)
         energy = torch.tensor(energy).float()
+    if 'bert' in batch[0]:
+        bert = [b['bert'] for b in batch]
+        bert = pad_sequence(bert)
 
     return {'x': text, 'mel': mel, 'item_id': item_id, 'x_len': x_len,
-            'mel_len': mel_lens, 'dur': dur, 'pitch': pitch, 'energy': energy}
+            'mel_len': mel_lens, 'dur': dur, 'pitch': pitch, 'energy': energy, 'bert': bert}
 
 
 class BinnedLengthSampler(Sampler):
