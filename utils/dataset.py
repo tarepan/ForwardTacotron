@@ -151,10 +151,10 @@ def get_tts_datasets(path: Path,
     train_data = filter_max_len(train_data, max_mel_len)
     val_data = filter_max_len(val_data, max_mel_len)
 
-    bert_ids = (path / 'bert').glob('**/*.pt')
-    bert_ids = {p.stem for p in bert_ids}
-    train_data = [d for d in train_data if d[0] in bert_ids]
-    val_data = [d for d in val_data if d[0] in bert_ids]
+    #bert_ids = (path / 'bert').glob('**/*.pt')
+    #bert_ids = {p.stem for p in bert_ids}
+    #train_data = [d for d in train_data if d[0] in bert_ids]
+    #val_data = [d for d in val_data if d[0] in bert_ids]
 
     train_len_original = len(train_data)
 
@@ -272,7 +272,10 @@ class ForwardDataset(Dataset):
         dur = np.load(str(self.path/'alg'/f'{item_id}.npy'))
         pitch = np.load(str(self.path/'phon_pitch'/f'{item_id}.npy'))
         energy = np.load(str(self.path/'phon_energy'/f'{item_id}.npy'))
-        bert = torch.load(str(self.path/'bert'/f'{item_id}.pt'))
+        try:
+            bert = torch.load(str(self.path/'bert'/f'{item_id}.pt'))
+        except Exception as e:
+            bert = torch.zeros(20, 768)
         return {'x': x, 'mel': mel, 'item_id': item_id, 'x_len': len(x),
                 'mel_len': mel_len, 'dur': dur, 'pitch': pitch, 'energy': energy, 'bert': bert}
 
