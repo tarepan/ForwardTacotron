@@ -106,7 +106,7 @@ class ForwardTransformer(torch.nn.Module):
         super().__init__()
 
         self.d_model = d_model
-        self.pos_encoder = PositionalEncoding(d_model, dropout)
+        self.pos_encoder = PositionalEncoding(d_model, 0.1)
         encoder_layer = FFTBlock(d_model=d_model,
                                  nhead=heads,
                                  d_fft=d_fft,
