@@ -165,7 +165,7 @@ class ForwardTransformer(torch.nn.Module):
         super().__init__()
 
         self.d_model = d_model
-        self.pos_encoder = PositionalEncoding(d_model, dropout)
+        self.pos_encoder = PositionalEncoding(d_model, 0.1)
         encoder_layer = FFTBlock(d_model=d_model,
                                  nhead=heads,
                                  d_fft=d_fft,
@@ -203,7 +203,8 @@ class ForwardCrossTransformer(torch.nn.Module):
         super().__init__()
 
         self.d_model = d_model
-        self.pos_encoder = PositionalEncoding(d_model, dropout)
+        self.pos_encoder = PositionalEncoding(d_model, 0.1)
+        self.pos_cross_encoder = PositionalEncoding(d_model, 0.1)
         encoder_layer = FFTCrossBlock(d_model=d_model,
                                       nhead=heads,
                                       d_fft=d_fft,
@@ -223,7 +224,7 @@ class ForwardCrossTransformer(torch.nn.Module):
         x = x.transpose(0, 1)        # shape: [T, N]
         mem = mem.transpose(0, 1)        # shape: [T, N]
         x = self.pos_encoder(x)
-        mem = self.pos_encoder(mem)
+        mem = self.pos_cross_encoder(mem)
         for layer in self.layers:
             x = layer(x, mem, src_pad_mask=src_pad_mask, mem_pad_mask=mem_pad_mask)
         x = self.norm(x)

@@ -1,6 +1,6 @@
 
 voc_model_id: 'ljspeech_voc'
-tts_model_id: 'asvoice2_bert_cross_tts'
+tts_model_id: 'asvoice2_flair_cross_fixpos_tts'
 data_path: 'data/'                                        # output data path
 
 tts_model: 'fast_pitch'                             # choices: [forward_tacotron, fast_pitch]
