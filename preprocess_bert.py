@@ -8,8 +8,8 @@ from utils.paths import Paths
 from utils.text.recipes import ljspeech
 
 if __name__ == '__main__':
-    flair_embedding_de = TransformerWordEmbeddings('bert-base-german-cased', subtoken_pooling='mean')
-    flair_embedding_en = TransformerWordEmbeddings('bert-base-uncased', subtoken_pooling='mean')
+    flair_embedding_de = FlairEmbeddings('de-forward')
+    flair_embedding_en = FlairEmbeddings('en-forward')
     metafile = ljspeech('/Users/cschaefe/datasets/ASVoice4_incl_english/metadata_clean_incl_english.csv')
     config = read_config('config.yaml')
     paths = Paths(config['data_path'], config['voc_model_id'], config['tts_model_id'])

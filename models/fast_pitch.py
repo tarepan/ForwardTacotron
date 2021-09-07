@@ -241,7 +241,7 @@ class SeriesPredictor(nn.Module):
                  layers: int,
                  conv1_kernel: int,
                  conv2_kernel: int,
-                 bert_dim=768,
+                 bert_dim=2048,
                  dropout=0.1):
         super().__init__()
         self.embedding = Embedding(num_chars, d_model)
