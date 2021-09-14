@@ -10,8 +10,7 @@ from utils.dsp import *
 from utils.files import get_files, pickle_binary, read_config
 from utils.paths import Paths
 from utils.text.cleaners import Cleaner
-from utils.text.recipes import ljspeech
-
+from utils.text.recipes import ljspeech, voxpopuli
 
 # Helper functions for argument types
 from utils.text.tokenizer import Tokenizer
@@ -71,7 +70,8 @@ class Preprocessor:
 
 
 parser = argparse.ArgumentParser(description='Preprocessing for WaveRNN and Tacotron')
-parser.add_argument('--path', '-p', help='directly point to dataset path')
+parser.add_argument('--wav_path', '-wp', help='directly point to wavs path')
+parser.add_argument('--csv_path', '-p', help='directly point to csv path')
 parser.add_argument('--num_workers', '-w', metavar='N', type=valid_n_workers, default=cpu_count()-1, help='The number of worker threads to use for preprocessing')
 parser.add_argument('--config', metavar='FILE', default='config.yaml', help='The config containing all hyperparams.')
 args = parser.parse_args()
@@ -80,13 +80,13 @@ args = parser.parse_args()
 if __name__ == '__main__':
 
     config = read_config(args.config)
-    wav_files = get_files(args.path, '.wav')
+    wav_files = get_files(args.wav_path, '.wav')
     wav_ids = {w.stem for w in wav_files}
     paths = Paths(config['data_path'], config['voc_model_id'], config['tts_model_id'])
-    print(f'\n{len(wav_files)} .wav files found in "{args.path}"')
-    assert len(wav_files) > 0, f'Found no wav files in {args.path}, exiting.'
+    print(f'\n{len(wav_files)} .wav files found in "{args.wav_path}"')
+    assert len(wav_files) > 0, f'Found no wav files in {args.wav_path}, exiting.'
 
-    text_dict = ljspeech(args.path)
+    text_dict = voxpopuli(args.csv_path)
     text_dict = {item_id: text for item_id, text in text_dict.items()
                  if item_id in wav_ids and len(text) > config['preprocessing']['min_text_len']}
     wav_files = [w for w in wav_files if w.stem in text_dict]
