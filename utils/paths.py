@@ -13,6 +13,7 @@ class Paths:
         self.mel = self.data/'mel'
         self.gta = self.data/'gta'
         self.alg = self.data/'alg'
+        self.semb = self.data/'semb'
         self.raw_pitch = self.data/'raw_pitch'
         self.phon_pitch = self.data/'phon_pitch'
         self.phon_energy = self.data/'phon_energy'
@@ -35,6 +36,7 @@ class Paths:
         os.makedirs(self.data, exist_ok=True)
         os.makedirs(self.quant, exist_ok=True)
         os.makedirs(self.mel, exist_ok=True)
+        os.makedirs(self.semb, exist_ok=True)
         os.makedirs(self.gta, exist_ok=True)
         os.makedirs(self.alg, exist_ok=True)
         os.makedirs(self.raw_pitch, exist_ok=True)

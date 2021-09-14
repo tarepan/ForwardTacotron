@@ -2,6 +2,7 @@ import argparse
 from multiprocessing import Pool, cpu_count
 from random import Random
 from typing import Tuple, Dict
+from resemblyzer import VoiceEncoder, preprocess_wav
 
 import pyworld as pw
 
@@ -37,18 +38,18 @@ class Preprocessor:
         self.lang = lang
         self.dsp = dsp
 
-    def __call__(self, path: Path) -> Tuple[str, int, str]:
+    def __call__(self, path: Path) -> Tuple[str, int, str, np.array]:
         wav_id = path.stem
-        m, x, raw_pitch = self._convert_file(path)
+        m, x, raw_pitch, y_p = self._convert_file(path)
         if m is not None:
             np.save(self.paths.mel/f'{wav_id}.npy', m, allow_pickle=False)
             #np.save(self.paths.quant/f'{wav_id}.npy', x, allow_pickle=False)
             np.save(self.paths.raw_pitch/f'{wav_id}.npy', raw_pitch, allow_pickle=False)
             text = self.text_dict[wav_id]
             text = self.cleaner(text)
-            return wav_id, m.shape[-1], text
+            return wav_id, m.shape[-1], text, y_p
         else:
-            return None, None, None
+            return None, None, None, None
 
     def _convert_file(self, path: Path) -> Tuple[np.array, np.array, np.array]:
         try:
@@ -63,10 +64,11 @@ class Preprocessor:
             mel = self.dsp.wav_to_mel(y)
             pitch, _ = pw.dio(y.astype(np.float64), self.dsp.sample_rate,
                               frame_period=self.dsp.hop_length / self.dsp.sample_rate * 1000)
-            return mel.astype(np.float32), None, pitch.astype(np.float32)
+            y_p = preprocess_wav(y, source_sr=self.dsp.sample_rate)
+            return mel.astype(np.float32), None, pitch.astype(np.float32), y_p.astype(np.float32)
         except Exception as e:
             print(e)
-            return None, None, None
+            return None, None, None, None
 
 
 parser = argparse.ArgumentParser(description='Preprocessing for WaveRNN and Tacotron')
@@ -109,14 +111,17 @@ if __name__ == '__main__':
     dataset = []
     cleaned_texts = []
     cleaner = Cleaner.from_config(config)
+    voice_encoder = VoiceEncoder()
     preprocessor = Preprocessor(paths=paths,
                                 text_dict=text_dict,
                                 dsp=dsp,
                                 cleaner=cleaner,
                                 lang=config['preprocessing']['language'])
 
-    for i, (item_id, length, cleaned_text) in enumerate(pool.imap_unordered(preprocessor, wav_files), 1):
+    for i, (item_id, length, cleaned_text, y_p) in enumerate(pool.imap_unordered(preprocessor, wav_files), 1):
         if item_id is not None and item_id in text_dict:
+            semb = voice_encoder.embed_utterance(y_p)
+            np.save(paths.semb / f'{item_id}.npy', semb, allow_pickle=False)
             dataset += [(item_id, length)]
             cleaned_texts += [(item_id, cleaned_text)]
         bar = progbar(i, len(wav_files))
