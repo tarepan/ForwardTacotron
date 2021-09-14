@@ -188,17 +188,19 @@ class Tacotron(nn.Module):
                  postnet_k: int,
                  num_highways: int,
                  dropout: float,
-                 stop_threshold: float) -> None:
+                 stop_threshold: float,
+                 semb_dim=128) -> None:
         super().__init__()
         self.n_mels = n_mels
         self.lstm_dims = lstm_dims
-        self.decoder_dims = decoder_dims
+        self.decoder_dims = decoder_dims + semb_dim
         self.encoder = Encoder(embed_dims, num_chars, encoder_dims,
                                encoder_k, num_highways, dropout)
         self.encoder_proj = nn.Linear(decoder_dims, decoder_dims, bias=False)
         self.decoder = Decoder(n_mels, decoder_dims, lstm_dims)
         self.postnet = CBHG(postnet_k, n_mels, postnet_dims, [256, 80], num_highways)
         self.post_proj = nn.Linear(postnet_dims * 2, n_mels, bias=False)
+        self.semb_dim = semb_dim
 
         self.init_model()
 
@@ -213,7 +215,7 @@ class Tacotron(nn.Module):
     def r(self, value: int) -> None:
         self.decoder.r = self.decoder.r.new_tensor(value, requires_grad=False)
 
-    def forward(self, x: torch.tensor, m: torch.tensor) -> torch.tensor:
+    def forward(self, x: torch.tensor, m: torch.tensor, semb: torch.tensor) -> torch.tensor:
         device = next(self.parameters()).device  # use same device as parameters
 
         if self.training:
@@ -241,6 +243,9 @@ class Tacotron(nn.Module):
         # Project the encoder outputs to avoid
         # unnecessary matmuls in the decoder loop
         encoder_seq = self.encoder(x)
+        speaker_emb = semb[:, None, :]
+        speaker_emb = speaker_emb.repeat(1, encoder_seq.shape[1], 1)
+        encoder_seq = torch.cat([encoder_seq, speaker_emb], dim=2)
         encoder_seq_proj = self.encoder_proj(encoder_seq)
 
         # Need a couple of lists for outputs
@@ -269,9 +274,12 @@ class Tacotron(nn.Module):
 
         return mel_outputs, linear, attn_scores
 
-    def generate(self, x: torch.tensor, steps=2000) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
+    def generate(self, x: torch.tensor, semb: torch.tensor = None, steps=2000) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
         self.eval()
         device = next(self.parameters()).device  # use same device as parameters
+
+        if semb is None:
+            semb = torch.rand((1, x.size(1), self.semb_dim)).to(x.device)
 
         batch_size = 1
 
@@ -295,6 +303,9 @@ class Tacotron(nn.Module):
         # Project the encoder outputs to avoid
         # unnecessary matmuls in the decoder loop
         encoder_seq = self.encoder(x)
+        speaker_emb = semb[:, None, :]
+        speaker_emb = speaker_emb.repeat(1, encoder_seq.shape[1], 1)
+        encoder_seq = torch.cat([encoder_seq, speaker_emb], dim=2)
         encoder_seq_proj = self.encoder_proj(encoder_seq)
 
         # Need a couple of lists for outputs
