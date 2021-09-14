@@ -18,7 +18,10 @@ def voxpopuli(path: Union[str, Path]):
     df = pd.read_csv(path, sep='|', encoding='utf-8')
     df.dropna(inplace=True)
     text_dict = {}
-    for id_, session_id, phons in zip(df['id_'], df['session_id'], df['phonemized_text']):
+    speaker_dict = {}
+    for id_, session_id, speaker_id, phons in zip(df['id_'], df['session_id'], df['speaker_id'], df['phonemized_text']):
+        wav_id = session_id + '-' + id_
         if len(phons) > 3:
-            text_dict[session_id + '-' + id_] = phons
-    return text_dict
+            text_dict[wav_id] = phons
+        speaker_dict[wav_id] = speaker_id
+    return text_dict, speaker_dict

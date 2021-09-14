@@ -88,7 +88,8 @@ if __name__ == '__main__':
     print(f'\n{len(wav_files)} .wav files found in "{args.wav_path}"')
     assert len(wav_files) > 0, f'Found no wav files in {args.wav_path}, exiting.'
 
-    text_dict = voxpopuli(args.csv_path)
+    text_dict, speaker_dict = voxpopuli(args.csv_path)
+    print(speaker_dict)
     text_dict = {item_id: text for item_id, text in text_dict.items()
                  if item_id in wav_ids and len(text) > config['preprocessing']['min_text_len']}
     wav_files = [w for w in wav_files if w.stem in text_dict]
@@ -140,6 +141,7 @@ if __name__ == '__main__':
     text_dict = {id: text for id, text in cleaned_texts}
 
     pickle_binary(text_dict, paths.data/'text_dict.pkl')
+    pickle_binary(speaker_dict, paths.data/'speaker_dict.pkl')
     pickle_binary(train_dataset, paths.data/'train_dataset.pkl')
     pickle_binary(val_dataset, paths.data/'val_dataset.pkl')
 
