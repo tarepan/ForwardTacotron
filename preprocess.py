@@ -41,7 +41,7 @@ class Preprocessor:
         wav_id = path.stem
         m, x, raw_pitch = self._convert_file(path)
         np.save(self.paths.mel/f'{wav_id}.npy', m, allow_pickle=False)
-        np.save(self.paths.quant/f'{wav_id}.npy', x, allow_pickle=False)
+        #np.save(self.paths.quant/f'{wav_id}.npy', x, allow_pickle=False)
         np.save(self.paths.raw_pitch/f'{wav_id}.npy', raw_pitch, allow_pickle=False)
         text = self.text_dict[wav_id]
         text = self.cleaner(text)

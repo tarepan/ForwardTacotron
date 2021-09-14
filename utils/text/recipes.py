@@ -18,7 +18,7 @@ def voxpopuli(path: Union[str, Path]):
     df = pd.read_csv(path, sep='|', encoding='utf-8')
     df.dropna(inplace=True)
     text_dict = {}
-    for id_, session_id, phons in zip(df['id_'], df['session_id'], df['normed_text']):
+    for id_, session_id, phons in zip(df['id_'], df['session_id'], df['phonemized_text']):
         if len(phons) > 3:
             text_dict[session_id + '-' + id_] = phons
     return text_dict
