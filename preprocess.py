@@ -44,10 +44,11 @@ class Preprocessor:
             np.save(self.paths.mel/f'{wav_id}.npy', m, allow_pickle=False)
             #np.save(self.paths.quant/f'{wav_id}.npy', x, allow_pickle=False)
             np.save(self.paths.raw_pitch/f'{wav_id}.npy', raw_pitch, allow_pickle=False)
+            text = self.text_dict[wav_id]
+            text = self.cleaner(text)
         else:
             wav_id = None
-        text = self.text_dict[wav_id]
-        text = self.cleaner(text)
+            text = None
         return wav_id, m.shape[-1], text
 
     def _convert_file(self, path: Path) -> Tuple[np.array, np.array, np.array]:
