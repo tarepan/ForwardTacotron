@@ -53,7 +53,7 @@ class Preprocessor:
 
     def _convert_file(self, path: Path) -> Tuple[np.array, np.array, np.array]:
         try:
-            y = self.dsp.load_wav(path)
+            y = self.dsp.load_wav(str(path))
             if self.dsp.trim_long_silences:
                y = self.dsp.trim_long_silences(y)
             if self.dsp.should_trim_start_end_silence:
