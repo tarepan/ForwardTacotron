@@ -40,33 +40,33 @@ class Preprocessor:
     def __call__(self, path: Path) -> Tuple[str, int, str]:
         wav_id = path.stem
         m, x, raw_pitch = self._convert_file(path)
-        np.save(self.paths.mel/f'{wav_id}.npy', m, allow_pickle=False)
-        #np.save(self.paths.quant/f'{wav_id}.npy', x, allow_pickle=False)
-        np.save(self.paths.raw_pitch/f'{wav_id}.npy', raw_pitch, allow_pickle=False)
+        if m is not None:
+            np.save(self.paths.mel/f'{wav_id}.npy', m, allow_pickle=False)
+            #np.save(self.paths.quant/f'{wav_id}.npy', x, allow_pickle=False)
+            np.save(self.paths.raw_pitch/f'{wav_id}.npy', raw_pitch, allow_pickle=False)
+        else:
+            wav_id = None
         text = self.text_dict[wav_id]
         text = self.cleaner(text)
         return wav_id, m.shape[-1], text
 
     def _convert_file(self, path: Path) -> Tuple[np.array, np.array, np.array]:
-        y = self.dsp.load_wav(path)
-        if self.dsp.trim_long_silences:
-           y = self.dsp.trim_long_silences(y)
-        if self.dsp.should_trim_start_end_silence:
-           y = self.dsp.trim_silence(y)
-        peak = np.abs(y).max()
-        if self.dsp.should_peak_norm or peak > 1.0:
-            y /= peak
-        mel = self.dsp.wav_to_mel(y)
-        pitch, _ = pw.dio(y.astype(np.float64), self.dsp.sample_rate,
-                          frame_period=self.dsp.hop_length / self.dsp.sample_rate * 1000)
-        if self.dsp.voc_mode == 'RAW':
-            quant = self.dsp.encode_mu_law(y, mu=2**self.dsp.bits) \
-                if self.dsp.mu_law else self.dsp.float_2_label(y, bits=self.dsp.bits)
-        elif self.dsp.voc_mode == 'MOL':
-            quant = self.dsp.float_2_label(y, bits=16)
-        else:
-            raise ValueError(f'Unexpected voc mode {self.dsp.voc_mode}, should be either RAW or MOL.')
-        return mel.astype(np.float32), quant.astype(np.int64), pitch.astype(np.float32)
+        try:
+            y = self.dsp.load_wav(path)
+            if self.dsp.trim_long_silences:
+               y = self.dsp.trim_long_silences(y)
+            if self.dsp.should_trim_start_end_silence:
+               y = self.dsp.trim_silence(y)
+            peak = np.abs(y).max()
+            if self.dsp.should_peak_norm or peak > 1.0:
+                y /= peak
+            mel = self.dsp.wav_to_mel(y)
+            pitch, _ = pw.dio(y.astype(np.float64), self.dsp.sample_rate,
+                              frame_period=self.dsp.hop_length / self.dsp.sample_rate * 1000)
+            return mel.astype(np.float32), None, pitch.astype(np.float32)
+        except Exception as e:
+            print(e)
+            return None, None, None
 
 
 parser = argparse.ArgumentParser(description='Preprocessing for WaveRNN and Tacotron')
@@ -116,7 +116,7 @@ if __name__ == '__main__':
                                 lang=config['preprocessing']['language'])
 
     for i, (item_id, length, cleaned_text) in enumerate(pool.imap_unordered(preprocessor, wav_files), 1):
-        if item_id in text_dict:
+        if item_id is not None and item_id in text_dict:
             dataset += [(item_id, length)]
             cleaned_texts += [(item_id, cleaned_text)]
         bar = progbar(i, len(wav_files))
