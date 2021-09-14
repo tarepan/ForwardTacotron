@@ -236,8 +236,9 @@ class TacoDataset(Dataset):
         x = self.tokenizer(text)
         mel = np.load(str(self.path/'mel'/f'{item_id}.npy'))
         mel_len = mel.shape[-1]
+        semb = np.load(str(self.path/'semb'/f'{item_id}.npy'))
         return {'x': x, 'mel': mel, 'item_id': item_id,
-                'mel_len': mel_len, 'x_len': len(x)}
+                'mel_len': mel_len, 'x_len': len(x), 'semb': semb}
 
     def __len__(self):
         return len(self.metadata)
@@ -312,6 +313,7 @@ def collate_tts(batch: List[Dict[str, Union[str, torch.tensor]]], r: int) -> Dic
         energy = np.stack(energy)
         energy = torch.tensor(energy).float()
     if 'semb' in batch[0]:
+        semb = [b['semb'] for b in batch]
         semb = np.stack(semb)
         semb = torch.tensor(semb).float()
 

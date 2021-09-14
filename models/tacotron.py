@@ -189,14 +189,15 @@ class Tacotron(nn.Module):
                  num_highways: int,
                  dropout: float,
                  stop_threshold: float,
-                 semb_dim=128) -> None:
+                 semb_dim=256) -> None:
         super().__init__()
         self.n_mels = n_mels
         self.lstm_dims = lstm_dims
-        self.decoder_dims = decoder_dims + semb_dim
+        self.decoder_dims = decoder_dims
         self.encoder = Encoder(embed_dims, num_chars, encoder_dims,
                                encoder_k, num_highways, dropout)
-        self.encoder_proj = nn.Linear(decoder_dims, decoder_dims, bias=False)
+        self.encoder_proj_query = nn.Linear(decoder_dims + semb_dim, decoder_dims, bias=False)
+        self.encoder_proj = nn.Linear(decoder_dims + semb_dim, decoder_dims, bias=False)
         self.decoder = Decoder(n_mels, decoder_dims, lstm_dims)
         self.postnet = CBHG(postnet_k, n_mels, postnet_dims, [256, 80], num_highways)
         self.post_proj = nn.Linear(postnet_dims * 2, n_mels, bias=False)
@@ -221,7 +222,7 @@ class Tacotron(nn.Module):
         if self.training:
             self.step += 1
 
-        batch_size, _, steps  = m.size()
+        batch_size, _, steps = m.size()
 
         # Initialise all hidden states and pack into tuple
         attn_hidden = torch.zeros(batch_size, self.decoder_dims, device=device)
@@ -246,6 +247,7 @@ class Tacotron(nn.Module):
         speaker_emb = semb[:, None, :]
         speaker_emb = speaker_emb.repeat(1, encoder_seq.shape[1], 1)
         encoder_seq = torch.cat([encoder_seq, speaker_emb], dim=2)
+        encoder_seq_proj_query = self.encoder_proj_query(encoder_seq)
         encoder_seq_proj = self.encoder_proj(encoder_seq)
 
         # Need a couple of lists for outputs
@@ -255,7 +257,7 @@ class Tacotron(nn.Module):
         for t in range(0, steps, self.r):
             prenet_in = m[:, :, t - 1] if t > 0 else go_frame
             mel_frames, scores, hidden_states, cell_states, context_vec = \
-                self.decoder(encoder_seq, encoder_seq_proj, prenet_in,
+                self.decoder(encoder_seq_proj_query, encoder_seq_proj, prenet_in,
                              hidden_states, cell_states, context_vec, t)
             mel_outputs.append(mel_frames)
             attn_scores.append(scores)
@@ -307,6 +309,7 @@ class Tacotron(nn.Module):
         speaker_emb = speaker_emb.repeat(1, encoder_seq.shape[1], 1)
         encoder_seq = torch.cat([encoder_seq, speaker_emb], dim=2)
         encoder_seq_proj = self.encoder_proj(encoder_seq)
+        encoder_seq_proj_query = self.encoder_proj_query(encoder_seq)
 
         # Need a couple of lists for outputs
         mel_outputs, attn_scores = [], []
@@ -315,7 +318,7 @@ class Tacotron(nn.Module):
         for t in range(0, steps, self.r):
             prenet_in = mel_outputs[-1][:, :, -1] if t > 0 else go_frame
             mel_frames, scores, hidden_states, cell_states, context_vec = \
-            self.decoder(encoder_seq, encoder_seq_proj, prenet_in,
+            self.decoder(encoder_seq_proj_query, encoder_seq_proj, prenet_in,
                          hidden_states, cell_states, context_vec, t)
             mel_outputs.append(mel_frames)
             attn_scores.append(scores)

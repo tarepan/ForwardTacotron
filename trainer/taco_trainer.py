@@ -71,7 +71,7 @@ class TacoTrainer:
                 batch = to_device(batch, device=device)
                 start = time.time()
                 model.train()
-                m1_hat, m2_hat, attention = model(batch['x'], batch['mel'])
+                m1_hat, m2_hat, attention = model(batch['x'], batch['mel'], batch['semb'])
 
                 m1_loss = F.l1_loss(m1_hat, batch['mel'])
                 m2_loss = F.l1_loss(m2_hat, batch['mel'])
