@@ -40,6 +40,7 @@ def extract_pitch_energy(save_path_pitch: Path,
     train_data = unpickle_binary(paths.data / 'train_dataset.pkl')
     val_data = unpickle_binary(paths.data / 'val_dataset.pkl')
     all_data = train_data + val_data
+    all_data = [d for d in all_data if d[1] < 1250]
     phoneme_pitches = []
     phoneme_energies = []
     for prog_idx, (item_id, mel_len) in enumerate(all_data, 1):
