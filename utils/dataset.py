@@ -146,6 +146,13 @@ def get_tts_datasets(path: Path,
     val_data = unpickle_binary(path/'val_dataset.pkl')
     text_dict = unpickle_binary(path/'text_dict.pkl')
 
+    pitch_path = path / 'phon_pitch'
+    pitches = set(pitch_path.glob('**/*.npy'))
+    pitch_ids = {p.stem for p in pitches}
+
+    train_data = [d for d in train_data if d[0] in pitch_ids]
+    val_data = [d for d in val_data if d[0] in pitch_ids]
+
     train_data = filter_max_len(train_data, max_mel_len)
     val_data = filter_max_len(val_data, max_mel_len)
     train_len_original = len(train_data)
