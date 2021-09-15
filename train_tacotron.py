@@ -66,11 +66,15 @@ def extract_pitch_energy(save_path_pitch: Path,
     for item_id, phoneme_energy in phoneme_energies:
         np.save(str(save_path_energy / f'{item_id}.npy'), phoneme_energy, allow_pickle=False)
 
-    mean, var = normalize_values(phoneme_pitches)
-    for item_id, phoneme_pitch in phoneme_pitches:
-        np.save(str(save_path_pitch / f'{item_id}.npy'), phoneme_pitch, allow_pickle=False)
-
-    print(f'\nPitch mean: {mean} var: {var}')
+    speaker_dict = unpickle_binary('data/speaker_dict.pkl')
+    sid_set = set(speaker_dict.values())
+    for sid in sid_set:
+        sid_wav_ids = {wav_id for wav_id, sid_ in speaker_dict if sid_ == sid}
+        phoneme_pitches_sid = [(wav_id, pitch) for wav_id, pitch in phoneme_pitches if wav_id in sid_wav_ids]
+        mean, var = normalize_values(phoneme_pitches_sid)
+        for item_id, phoneme_pitch in phoneme_pitches_sid:
+            np.save(str(save_path_pitch / f'{item_id}.npy'), phoneme_pitch, allow_pickle=False)
+        print(f'\npitch sid: {sid} mean: {mean} var: {var}')
 
     return mean, var
 
