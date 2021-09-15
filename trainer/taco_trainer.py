@@ -140,7 +140,7 @@ class TacoTrainer:
         device = next(model.parameters()).device
         batch = session.val_sample
         batch = to_device(batch, device=device)
-        m1_hat, m2_hat, att = model(batch['x'], batch['mel'])
+        m1_hat, m2_hat, att = model(batch['x'], batch['mel'], batch['semb'])
         att = np_now(att)[0]
         m1_hat = np_now(m1_hat)[0, :600, :]
         m2_hat = np_now(m2_hat)[0, :600, :]
@@ -166,7 +166,7 @@ class TacoTrainer:
             tag='Ground_Truth_Aligned/postnet_wav', snd_tensor=m2_hat_wav,
             global_step=model.step, sample_rate=self.dsp.sample_rate)
 
-        m1_hat, m2_hat, att = model.generate(batch['x'][0:1], steps=batch['mel_len'][0] + 20)
+        m1_hat, m2_hat, att = model.generate(batch['x'][0:1], semb=batch['semb'][0:1], steps=batch['mel_len'][0] + 20)
         att_fig = plot_attention(att)
         m1_hat_fig = plot_mel(m1_hat)
         m2_hat_fig = plot_mel(m2_hat)
