@@ -1,8 +1,11 @@
 import argparse
 from pathlib import Path
 from typing import Tuple, Dict, Any, Union
+
+import librosa
 import numpy as np
 import torch
+from resemblyzer import VoiceEncoder, preprocess_wav
 
 from models.fast_pitch import FastPitch
 from models.fatchord_version import WaveRNN
@@ -103,6 +106,10 @@ if __name__ == '__main__':
     pitch_function = lambda x: x * args.amp
     energy_function = lambda x: x
 
+    ref_wav = '/tmp/voxsample.wav'
+    voice_encoder = VoiceEncoder()
+    sample_wav = preprocess_wav(ref_wav)
+    semb = voice_encoder.embed_utterance(sample_wav)
     for i, x in enumerate(texts, 1):
         print(f'\n| Generating {i}/{len(texts)}')
         text = x
@@ -113,6 +120,7 @@ if __name__ == '__main__':
         wav_name = f'{i}_forward_{tts_k}k_alpha{args.alpha}_amp{args.amp}_{args.vocoder}'
 
         gen = tts_model.generate(x=x,
+                                 semb=torch.from_numpy(semb).unsqueeze(0),
                                  alpha=args.alpha,
                                  pitch_function=pitch_function,
                                  energy_function=energy_function)
