@@ -140,15 +140,16 @@ class SeriesPredictor(nn.Module):
                  layers: int,
                  conv1_kernel: int,
                  conv2_kernel: int,
+                 semb_dim: int = 256,
                  dropout=0.1):
         super().__init__()
         self.embedding = Embedding(num_chars, d_model)
         self.transformer = ForwardTransformer(heads=n_heads, dropout=dropout,
-                                              d_model=d_model, d_fft=d_fft,
+                                              d_model=d_model + semb_dim, d_fft=d_fft,
                                               conv1_kernel=conv1_kernel,
                                               conv2_kernel=conv2_kernel,
                                               layers=layers)
-        self.lin = nn.Linear(d_model, 1)
+        self.lin = nn.Linear(d_model + semb_dim, 1)
 
     def forward(self,
                 x: torch.Tensor,
@@ -203,7 +204,7 @@ class FastPitch(nn.Module):
         self.padding_value = padding_value
         self.lr = LengthRegulator()
         self.dur_pred = SeriesPredictor(num_chars=num_chars,
-                                        d_model=durpred_d_model + semb_dim,
+                                        d_model=durpred_d_model,
                                         n_heads=durpred_n_heads,
                                         layers=durpred_layers,
                                         d_fft=durpred_d_fft,
@@ -211,7 +212,7 @@ class FastPitch(nn.Module):
                                         conv2_kernel=conv2_kernel,
                                         dropout=durpred_dropout)
         self.pitch_pred = SeriesPredictor(num_chars=num_chars,
-                                          d_model=pitch_d_model + semb_dim,
+                                          d_model=pitch_d_model,
                                           n_heads=pitch_n_heads,
                                           layers=pitch_layers,
                                           d_fft=pitch_d_fft,
@@ -219,7 +220,7 @@ class FastPitch(nn.Module):
                                           conv2_kernel=conv2_kernel,
                                           dropout=pitch_dropout)
         self.energy_pred = SeriesPredictor(num_chars=num_chars,
-                                           d_model=energy_d_model + semb_dim,
+                                           d_model=energy_d_model,
                                            n_heads=energy_n_heads,
                                            layers=energy_layers,
                                            d_fft=energy_d_fft,
