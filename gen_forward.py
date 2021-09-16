@@ -46,6 +46,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='TTS Generator')
     parser.add_argument('--input_text', '-i', default=None, type=str, help='[string] Type in something here and TTS will generate it!')
     parser.add_argument('--checkpoint', type=str, default=None, help='[string/path] path to .pt model file.')
+    parser.add_argument('--ref', type=str, default=None, help='[string/path] path to reference wav')
     parser.add_argument('--config', metavar='FILE', default='config.yaml', help='The config containing all hyperparams. Only'
                                                                                 'used if no checkpoint is set.')
     parser.add_argument('--alpha', type=float, default=1., help='Parameter for controlling length regulator for speedup '
@@ -106,9 +107,9 @@ if __name__ == '__main__':
     pitch_function = lambda x: x * args.amp
     energy_function = lambda x: x
 
-    ref_wav = '/tmp/voxsample.wav'
+    #ref_wav = '/tmp/voxsample.wav'
     voice_encoder = VoiceEncoder()
-    sample_wav = preprocess_wav(ref_wav)
+    sample_wav = preprocess_wav(args.ref)
     semb = voice_encoder.embed_utterance(sample_wav)
     for i, x in enumerate(texts, 1):
         print(f'\n| Generating {i}/{len(texts)}')
@@ -116,8 +117,8 @@ if __name__ == '__main__':
         x = cleaner(x)
         x = tokenizer(x)
         x = torch.as_tensor(x, dtype=torch.long, device=device).unsqueeze(0)
-
-        wav_name = f'{i}_forward_{tts_k}k_alpha{args.alpha}_amp{args.amp}_{args.vocoder}'
+        ref_name = Path(args.ref).stem
+        wav_name = f'{i}_ref_{ref_name}_forward_{tts_k}k_alpha{args.alpha}_amp{args.amp}_{args.vocoder}'
 
         gen = tts_model.generate(x=x,
                                  semb=torch.from_numpy(semb).unsqueeze(0),
