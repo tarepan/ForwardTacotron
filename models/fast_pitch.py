@@ -294,22 +294,23 @@ class FastPitch(nn.Module):
 
     def generate(self,
                  x: torch.Tensor,
+                 semb: torch.Tensor,
                  alpha=1.0,
                  pitch_function: Callable[[torch.Tensor], torch.Tensor] = lambda x: x,
                  energy_function: Callable[[torch.Tensor], torch.Tensor] = lambda x: x) -> Dict[str, torch.Tensor]:
         self.eval()
         with torch.no_grad():
-            dur_hat = self.dur_pred(x, alpha=alpha)
+            dur_hat = self.dur_pred(x, semb, alpha=alpha)
             dur_hat = dur_hat.squeeze(2)
             if torch.sum(dur_hat.long()) <= 0:
                 torch.fill_(dur_hat, value=2.)
-            pitch_hat = self.pitch_pred(x).transpose(1, 2)
+            pitch_hat = self.pitch_pred(x, semb).transpose(1, 2)
             pitch_hat = pitch_function(pitch_hat)
-            energy_hat = self.energy_pred(x).transpose(1, 2)
+            energy_hat = self.energy_pred(x, semb).transpose(1, 2)
             energy_hat = energy_function(energy_hat)
             return self._generate_mel(x=x, dur_hat=dur_hat,
                                       pitch_hat=pitch_hat,
-                                      energy_hat=energy_hat)
+                                      energy_hat=energy_hat, semb=semb)
 
     def pad(self, x: torch.Tensor, max_len: int) -> torch.Tensor:
         x = x[:, :, :max_len]
@@ -321,6 +322,7 @@ class FastPitch(nn.Module):
 
     def _generate_mel(self,
                       x: torch.Tensor,
+                      semb: torch.Tensor,
                       dur_hat: torch.Tensor,
                       pitch_hat: torch.Tensor,
                       energy_hat: torch.Tensor) -> Dict[str, torch.Tensor]:
@@ -329,6 +331,9 @@ class FastPitch(nn.Module):
 
         x = self.embedding(x)
         x = self.prenet(x, src_pad_mask=len_mask)
+        speaker_emb = semb[:, None, :]
+        speaker_emb = speaker_emb.repeat(1, x.shape[1], 1)
+        x = torch.cat([x, speaker_emb], dim=2)
 
         pitch_proj = self.pitch_proj(pitch_hat)
         pitch_proj = pitch_proj.transpose(1, 2)
