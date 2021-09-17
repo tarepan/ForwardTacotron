@@ -100,8 +100,7 @@ class PhonemeAttention(nn.Module):
         x_a, _ = self.self_attn(x_in, x_in, x_in, key_padding_mask=len_mask)
         x_a = x_in + x_a
         x_a, _ = self.cross_attn(x_a, phon_x, phon_x)
-        x = x + x_a.transpose(0, 1)
-        return x
+        return x_a.transpose(0, 1)
 
 
 class ForwardTacotron(nn.Module):
