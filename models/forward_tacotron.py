@@ -3,12 +3,38 @@ from typing import Union, Callable, Dict, Any
 import numpy as np
 import torch
 import torch.nn as nn
+import math
 import torch.nn.functional as F
-from torch.nn import Embedding
+from torch.nn import Embedding, MultiheadAttention
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
 
 from models.common_layers import CBHG, LengthRegulator
 from utils.text.symbols import phonemes
+from utils.text.tokenizer import Tokenizer
+
+
+class PositionalEncoding(torch.nn.Module):
+
+    def __init__(self, d_model: int, dropout=0.1, max_len=5000) -> None:
+        super(PositionalEncoding, self).__init__()
+        self.dropout = torch.nn.Dropout(p=dropout)
+        self.scale = torch.nn.Parameter(torch.ones(1))
+
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(
+            0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0).transpose(0, 1)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:         # shape: [T, N]
+        x = x + self.scale * self.pe[:x.size(0), :]
+        return self.dropout(x)
+
+def make_token_len_mask(x: torch.Tensor) -> torch.Tensor:
+    return (x == 0).transpose(0, 1)
 
 
 class SeriesPredictor(nn.Module):
@@ -52,6 +78,30 @@ class BatchNormConv(nn.Module):
         if self.relu:
             x = F.relu(x)
         x = self.bnorm(x)
+        return x
+
+
+class PhonemeAttention(nn.Module):
+
+    def __init__(self, embed_dims: int, num_phons: int):
+        super().__init__()
+        self.self_attn = MultiheadAttention(embed_dims, num_heads=4, dropout=0.1)
+        self.cross_attn = MultiheadAttention(embed_dims, num_heads=4, dropout=0.1)
+        self.embedding = Embedding(num_embeddings=num_phons, embedding_dim=embed_dims)
+        self.phon_range = torch.arange(end=num_phons)
+        self.pos_encoding = PositionalEncoding(d_model=embed_dims, dropout=0.1)
+
+    def forward(self, x: torch.Tensor, len_mask=None) -> torch.Tensor:
+
+        phon_x = self.embedding(self.phon_range.to(x.device)).unsqueeze(0).repeat(x.size(0), 1, 1)
+        phon_x = phon_x.transpose(0, 1)
+        x_in = x.transpose(0, 1)
+        x_in = self.pos_encoding(x_in)
+        x_a, _ = self.self_attn(x_in, x_in, x_in, key_padding_mask=len_mask)
+        x_a = x_in + x_a
+        x_a, _ = self.cross_attn(x_a, phon_x, phon_x)
+        x = x_in + x_a
+        x = x.transpose(0, 1)
         return x
 
 
@@ -126,6 +176,7 @@ class ForwardTacotron(nn.Module):
         self.energy_strength = energy_strength
         self.pitch_proj = nn.Conv1d(1, 2 * prenet_dims, kernel_size=3, padding=1)
         self.energy_proj = nn.Conv1d(1, 2 * prenet_dims, kernel_size=3, padding=1)
+        self.phon_att = PhonemeAttention(embed_dims=embed_dims, num_phons=num_chars)
 
     def __repr__(self):
         num_params = sum([np.prod(p.size()) for p in self.parameters()])
@@ -146,7 +197,10 @@ class ForwardTacotron(nn.Module):
         pitch_hat = self.pitch_pred(x).transpose(1, 2)
         energy_hat = self.energy_pred(x).transpose(1, 2)
 
+        len_mask = make_token_len_mask(x.transpose(0, 1))
         x = self.embedding(x)
+        x = self.phon_att(x, len_mask=len_mask)
+
         x = x.transpose(1, 2)
         x = self.prenet(x)
 
@@ -223,7 +277,11 @@ class ForwardTacotron(nn.Module):
                       dur_hat: torch.Tensor,
                       pitch_hat: torch.Tensor,
                       energy_hat: torch.Tensor) -> Dict[str, torch.Tensor]:
+
+        len_mask = make_token_len_mask(x.transpose(0, 1))
         x = self.embedding(x)
+        x = self.phon_att(x, len_mask=len_mask)
+
         x = x.transpose(1, 2)
         x = self.prenet(x)
 
