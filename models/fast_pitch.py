@@ -104,10 +104,11 @@ class FFTCrossBlock(nn.Module):
                  conv1_kernel: int,
                  conv2_kernel: int,
                  d_fft: int,
-                 dropout: float = 0.1):
+                 dropout: float = 0.1,
+                 n_head_cross: int = 4):
         super().__init__()
         self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout)
-        self.cross_attn = MultiheadAttention(d_model, nhead, dropout=dropout)
+        self.cross_attn = MultiheadAttention(d_model, n_head_cross, dropout=dropout)
         self.dropout = nn.Dropout(dropout)
         self.conv1 = nn.Conv1d(in_channels=d_model, out_channels=d_fft,
                                kernel_size=conv1_kernel, stride=1, padding=conv1_kernel//2)
@@ -122,8 +123,8 @@ class FFTCrossBlock(nn.Module):
         self.norm2 = LayerNorm(d_model)
         self.norm3 = LayerNorm(d_model)
         self.dropout1 = nn.Dropout(dropout)
-        self.dropout2 = nn.Dropout(0.1)
-        self.dropout3 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
+        self.dropout3 = nn.Dropout(0.1)
         self.activation = torch.nn.ReLU()
 
     def forward(self,
@@ -251,7 +252,7 @@ class SeriesPredictor(nn.Module):
                  layers: int,
                  conv1_kernel: int,
                  conv2_kernel: int,
-                 bert_dim=2048,
+                 bert_dim=768,
                  dropout=0.1):
         super().__init__()
         self.embedding = Embedding(num_chars, d_model)
