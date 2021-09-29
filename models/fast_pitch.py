@@ -158,7 +158,7 @@ class FFTCrossBlock(nn.Module):
         src3 = torch.cat([src, src2], dim=-1)
         out = self.out_linear(src3)
 
-        return src
+        return out
 
 
 class ForwardTransformer(torch.nn.Module):
