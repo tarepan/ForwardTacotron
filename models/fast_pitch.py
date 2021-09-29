@@ -139,6 +139,7 @@ class FFTCrossBlock(nn.Module):
         src = src + self.dropout1(src2)
         src = self.norm1(src)
 
+        cross_query = src
 
         src = src.transpose(0, 1).transpose(1, 2)
         src2 = self.conv1(src)
@@ -148,12 +149,11 @@ class FFTCrossBlock(nn.Module):
         src = src.transpose(1, 2).transpose(0, 1)
         src = self.norm2(src)
 
-        cross_query = src
         src2, _ = self.cross_attn(cross_query, mem, mem,
                                   attn_mask=None,
                                   key_padding_mask=mem_pad_mask)
-        src2 = self.linear2(self.dropout3(self.activation(self.linear1(src2))))
-        src2 = self.norm3(src2)
+        #src2 = self.linear2(self.dropout3(self.activation(self.linear1(src2))))
+        #src2 = self.norm3(src2)
 
         #src3 = torch.cat([src, src2], dim=-1)
         #äout = self.out_linear(src3)
