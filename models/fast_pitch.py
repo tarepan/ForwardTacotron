@@ -105,7 +105,7 @@ class FFTCrossBlock(nn.Module):
                  conv2_kernel: int,
                  d_fft: int,
                  dropout: float = 0.1,
-                 n_head_cross: int = 2):
+                 n_head_cross: int = 4):
         super().__init__()
         self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout)
         self.cross_attn = MultiheadAttention(d_model, n_head_cross, dropout=dropout)
@@ -122,8 +122,8 @@ class FFTCrossBlock(nn.Module):
         self.norm1 = LayerNorm(d_model)
         self.norm2 = LayerNorm(d_model)
         self.norm3 = LayerNorm(d_model)
-        self.dropout1 = nn.Dropout(0.1)
-        self.dropout2 = nn.Dropout(0.1)
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(dropout)
         self.dropout3 = nn.Dropout(0.1)
         self.activation = torch.nn.ReLU()
 
@@ -139,21 +139,25 @@ class FFTCrossBlock(nn.Module):
         src = src + self.dropout1(src2)
         src = self.norm1(src)
 
-        src2, _ = self.cross_attn(src, mem, mem,
-                               attn_mask=None,
-                               key_padding_mask=mem_pad_mask)
-
-        src = src + self.dropout2(src2)
-        src = self.norm2(src)
+        cross_query = src
 
         src = src.transpose(0, 1).transpose(1, 2)
         src2 = self.conv1(src)
         src2 = self.activation(src2)
         src2 = self.conv2(src2)
-        src = src + self.dropout3(src2)
+        src = src + self.dropout2(src2)
         src = src.transpose(1, 2).transpose(0, 1)
-        src = self.norm3(src)
-        return src
+        src = self.norm2(src)
+
+        src2, _ = self.cross_attn(cross_query, mem, mem,
+                                  attn_mask=None,
+                                  key_padding_mask=mem_pad_mask)
+        src2 = self.linear2(self.dropout3(self.activation(self.linear1(src2))))
+        src2 = self.norm3(src2)
+
+        src3 = torch.cat([src, src2], dim=-1)
+        out = self.out_linear(src3)
+        return out
 
 
 class ForwardTransformer(torch.nn.Module):
