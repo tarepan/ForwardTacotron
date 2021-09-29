@@ -122,8 +122,8 @@ class FFTCrossBlock(nn.Module):
         self.norm1 = LayerNorm(d_model)
         self.norm2 = LayerNorm(d_model)
         self.norm3 = LayerNorm(d_model)
-        self.dropout1 = nn.Dropout(dropout)
-        self.dropout2 = nn.Dropout(dropout)
+        self.dropout1 = nn.Dropout(0.1)
+        self.dropout2 = nn.Dropout(0.1)
         self.dropout3 = nn.Dropout(0.1)
         self.activation = torch.nn.ReLU()
 
