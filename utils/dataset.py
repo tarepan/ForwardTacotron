@@ -280,7 +280,7 @@ class ForwardDataset(Dataset):
         try:
             bert = torch.load(str(self.path/'bert'/f'{item_id}.pt'))
         except Exception as e:
-            bert = torch.zeros(20, 768)
+            bert = torch.zeros(20, 2048)
         return {'x': x, 'mel': mel, 'item_id': item_id, 'x_len': len(x),
                 'mel_len': mel_len, 'dur': dur, 'pitch': pitch, 'energy': energy, 'bert': bert}
 
