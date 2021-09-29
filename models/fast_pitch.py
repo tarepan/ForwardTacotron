@@ -105,7 +105,7 @@ class FFTCrossBlock(nn.Module):
                  conv2_kernel: int,
                  d_fft: int,
                  dropout: float = 0.1,
-                 n_head_cross: int = 4):
+                 n_head_cross: int = 2):
         super().__init__()
         self.self_attn = MultiheadAttention(d_model, nhead, dropout=dropout)
         self.cross_attn = MultiheadAttention(d_model, n_head_cross, dropout=dropout)
