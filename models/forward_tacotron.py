@@ -5,10 +5,21 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import Embedding, Sequential
+from torch.nn.utils import weight_norm
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
 
 from models.common_layers import CBHG, LengthRegulator
 from utils.text.symbols import phonemes
+
+class WNConv1d(torch.nn.Module):
+
+    def __init__(self, *args, **kwargs,) -> None:
+        super().__init__()
+        conv = torch.nn.Conv1d(*args, **kwargs)
+        self.conv = weight_norm(conv)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.conv(x)
 
 
 class SeriesPredictor(nn.Module):
@@ -60,10 +71,13 @@ class SpecDiscriminator(nn.Module):
     def __init__(self):
         super().__init__()
         self.convs = Sequential(
-            BatchNormConv(80, 256, 5, relu=True),
-            BatchNormConv(256, 256, 5, relu=True),
-            BatchNormConv(256, 256, 5, relu=True),
-            BatchNormConv(256, 1, 3, relu=False))
+            WNConv1d(80, 256, 5, padding=2),
+            nn.LeakyReLU(0.2, inplace=True),
+            WNConv1d(256, 256, 5, padding=2),
+            nn.LeakyReLU(0.2, inplace=True),
+            WNConv1d(256, 256, 5, padding=2),
+            nn.LeakyReLU(0.2, inplace=True),
+            WNConv1d(256, 1, 3, padding=2))
 
     def forward(self, mel):
         return self.convs(mel)
