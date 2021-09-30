@@ -71,13 +71,13 @@ class SpecDiscriminator(nn.Module):
     def __init__(self):
         super().__init__()
         self.convs = Sequential(
-            WNConv1d(80, 256, 5, padding=2),
+            WNConv1d(80, 128, 5, padding=2),
             nn.LeakyReLU(0.2, inplace=True),
-            WNConv1d(256, 256, 5, padding=2),
+            WNConv1d(128, 128, 5, padding=2),
             nn.LeakyReLU(0.2, inplace=True),
-            WNConv1d(256, 256, 5, padding=2),
+            WNConv1d(128, 128, 5, padding=2),
             nn.LeakyReLU(0.2, inplace=True),
-            WNConv1d(256, 1, 3, padding=2))
+            WNConv1d(128, 1, 3, padding=1))
 
     def forward(self, mel):
         return self.convs(mel)
