@@ -1,13 +1,14 @@
 import time
 from typing import Tuple, Dict, Any, Union
-
+import torch.nn.functional as F
 import torch
+from torch.optim import Adam
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 from models.fast_pitch import FastPitch
-from models.forward_tacotron import ForwardTacotron
+from models.forward_tacotron import ForwardTacotron, SpecDiscriminator
 from trainer.common import Averager, TTSSession, MaskedL1, to_device, np_now
 from utils.checkpoints import  save_checkpoint
 from utils.dataset import get_tts_datasets
@@ -35,6 +36,9 @@ class ForwardTrainer:
     def train(self, model: Union[ForwardTacotron, FastPitch], optimizer: Optimizer) -> None:
         forward_schedule = self.train_cfg['schedule']
         forward_schedule = parse_schedule(forward_schedule)
+        disc = SpecDiscriminator()
+        d_optim = Adam(disc.parameters(), lr=1e-4, betas=(0.5, 0.9))
+
         for i, session_params in enumerate(forward_schedule, 1):
             lr, max_step, bs = session_params
             if model.get_step() < max_step:
@@ -47,10 +51,11 @@ class ForwardTrainer:
                 session = TTSSession(
                     index=i, r=1, lr=lr, max_step=max_step,
                     bs=bs, train_set=train_set, val_set=val_set)
-                self.train_session(model, optimizer, session)
+                self.train_session(model, optimizer, session, disc, d_optim)
 
     def train_session(self,  model: Union[ForwardTacotron, FastPitch],
-                      optimizer: Optimizer, session: TTSSession) -> None:
+                      optimizer: Optimizer, session: TTSSession,
+                      disc, d_optim) -> None:
         current_step = model.get_step()
         training_steps = session.max_step - current_step
         total_iters = len(session.train_set)
@@ -90,10 +95,24 @@ class ForwardTrainer:
                 pitch_loss = self.l1_loss(pred['pitch'], pitch_target.unsqueeze(1), batch['x_len'])
                 energy_loss = self.l1_loss(pred['energy'], energy_target.unsqueeze(1), batch['x_len'])
 
+                # discriminator
+                d_fake = disc(pred['mel_post'].detach())
+                d_real = disc(batch['mel'])
+                d_loss = 0.
+                d_loss += F.relu(1.0 - d_real).mean()
+                d_loss += F.relu(1.0 + d_fake).mean()
+                d_optim.zero_grad()
+                d_loss.backward()
+                d_optim.step()
+
+                d_fake = disc(pred['mel_post'])
+                g_loss = -d_fake.mean()
+
                 loss = m1_loss + m2_loss \
                        + self.train_cfg['dur_loss_factor'] * dur_loss \
                        + self.train_cfg['pitch_loss_factor'] * pitch_loss \
-                       + self.train_cfg['energy_loss_factor'] * energy_loss
+                       + self.train_cfg['energy_loss_factor'] * energy_loss \
+                       + g_loss
 
                 optimizer.zero_grad()
                 loss.backward()
@@ -121,6 +140,8 @@ class ForwardTrainer:
                 if step % self.train_cfg['plot_every'] == 0:
                     self.generate_plots(model, session)
 
+                self.writer.add_scalar('Disc_Loss/train', d_loss, model.get_step())
+                self.writer.add_scalar('Gen_Loss/train', g_loss, model.get_step())
                 self.writer.add_scalar('Mel_Loss/train', m1_loss + m2_loss, model.get_step())
                 self.writer.add_scalar('Pitch_Loss/train', pitch_loss, model.get_step())
                 self.writer.add_scalar('Energy_Loss/train', energy_loss, model.get_step())

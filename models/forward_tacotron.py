@@ -4,7 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn import Embedding
+from torch.nn import Embedding, Sequential
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence, pad_sequence
 
 from models.common_layers import CBHG, LengthRegulator
@@ -53,6 +53,20 @@ class BatchNormConv(nn.Module):
             x = F.relu(x)
         x = self.bnorm(x)
         return x
+
+
+class SpecDiscriminator(nn.Module):
+
+    def __init__(self):
+        super().__init__()
+        self.convs = Sequential(
+            BatchNormConv(80, 256, 5, relu=True),
+            BatchNormConv(256, 256, 5, relu=True),
+            BatchNormConv(256, 256, 5, relu=True),
+            BatchNormConv(256, 1, 3, relu=False))
+
+    def forward(self, mel):
+        return self.convs(mel)
 
 
 class ForwardTacotron(nn.Module):
