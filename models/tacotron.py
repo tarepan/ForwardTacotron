@@ -339,6 +339,9 @@ class Tacotron(nn.Module):
         # Run the decoder loop
         for t in range(0, steps, self.r):
             prenet_in = mel_outputs[-1][:, :, -1] if t > 0 else go_frame
+            query_in = mel_outputs[:, :, t - 1] if t > 0 else go_frame
+            prenet_in = torch.cat([prenet_in, query_in], dim=-1)
+
             mel_frames, scores, hidden_states, cell_states, context_vec = \
             self.decoder(encoder_seq, encoder_seq_proj, prenet_in,
                          hidden_states, cell_states, context_vec, t)
