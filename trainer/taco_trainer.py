@@ -103,9 +103,9 @@ class TacoTrainer:
                                                self.train_cfg['clip_grad_norm'])
                 optimizer.step()
                 loss_avg.add(loss.item())
+                duration_avg.add(time.time() - start)
                 speed = 1. / duration_avg.get()
 
-                duration_avg.add(time.time() - start)
                 msg = f'| Epoch: {e}/{epochs} ({i}/{total_iters}) | Loss: {loss_avg.get():#.4} ' \
                       f'| {speed:#.2} steps/s | Step: {k}k | '
 
