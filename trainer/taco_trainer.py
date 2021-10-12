@@ -2,6 +2,7 @@ import time
 
 import torch
 import torch.nn.functional as F
+from torch.nn import CTCLoss
 from torch.optim.optimizer import Optimizer
 from torch.utils.data import Dataset
 from torch.utils.tensorboard import SummaryWriter
@@ -30,6 +31,8 @@ class TacoTrainer:
         self.config = config
         self.train_cfg = config['tacotron']['training']
         self.writer = SummaryWriter(log_dir=paths.taco_log, comment='v1')
+        self.ctc_loss = CTCLoss()
+
 
     def train(self,
               model: Tacotron,
@@ -70,8 +73,25 @@ class TacoTrainer:
             for i, batch in enumerate(session.train_set, 1):
                 batch = to_device(batch, device=device)
                 start = time.time()
+                step = model.get_step()
+
                 model.train()
-                m1_hat, m2_hat, attention = model(batch['x'], batch['mel'])
+                k = step // 1000
+
+                if step < 10:
+                    ctc_out = model.aligner(batch['mel'].transpose(1, 2))
+                    ctc_out = ctc_out.transpose(0, 1).log_softmax(2)
+                    loss_ctc = self.ctc_loss(ctc_out, batch['x'], batch['mel_len'], batch['x_len'])
+                    optimizer.zero_grad()
+                    loss_ctc.backward()
+                    if not torch.isnan(loss_ctc) and not torch.isinf(loss_ctc):
+                        optimizer.step()
+                        msg = f'| Epoch: {e}/{epochs} ({i}/{total_iters}) | Loss CTC: {loss_ctc.item():#.4} ' \
+                              f'| Step: {k}k | '
+                        stream(msg)
+                    continue
+
+                m1_hat, m2_hat, attention, ctc_out = model(batch['x'], batch['mel'])
 
                 m1_loss = F.l1_loss(m1_hat, batch['mel'])
                 m2_loss = F.l1_loss(m2_hat, batch['mel'])
@@ -82,11 +102,9 @@ class TacoTrainer:
                                                self.train_cfg['clip_grad_norm'])
                 optimizer.step()
                 loss_avg.add(loss.item())
-                step = model.get_step()
-                k = step // 1000
+                speed = 1. / duration_avg.get()
 
                 duration_avg.add(time.time() - start)
-                speed = 1. / duration_avg.get()
                 msg = f'| Epoch: {e}/{epochs} ({i}/{total_iters}) | Loss: {loss_avg.get():#.4} ' \
                       f'| {speed:#.2} steps/s | Step: {k}k | '
 
@@ -101,6 +119,7 @@ class TacoTrainer:
                 att_score = torch.mean(att_score)
                 self.writer.add_scalar('Attention_Score/train', att_score, model.get_step())
                 self.writer.add_scalar('Loss/train', loss, model.get_step())
+                self.writer.add_scalar('Loss_CTC/train', loss_ctc, model.get_step())
                 self.writer.add_scalar('Params/reduction_factor', session.r, model.get_step())
                 self.writer.add_scalar('Params/batch_size', session.bs, model.get_step())
                 self.writer.add_scalar('Params/learning_rate', session.lr, model.get_step())
@@ -125,7 +144,7 @@ class TacoTrainer:
         for i, batch in enumerate(val_set, 1):
             batch = to_device(batch, device=device)
             with torch.no_grad():
-                m1_hat, m2_hat, attention = model(batch['x'], batch['mel'])
+                m1_hat, m2_hat, attention, ctc_out = model(batch['x'], batch['mel'])
                 m1_loss = F.l1_loss(m1_hat, batch['mel'])
                 m2_loss = F.l1_loss(m2_hat, batch['mel'])
                 val_loss += m1_loss.item() + m2_loss.item()
@@ -140,7 +159,7 @@ class TacoTrainer:
         device = next(model.parameters()).device
         batch = session.val_sample
         batch = to_device(batch, device=device)
-        m1_hat, m2_hat, att = model(batch['x'], batch['mel'])
+        m1_hat, m2_hat, att, ctc_out = model(batch['x'], batch['mel'])
         att = np_now(att)[0]
         m1_hat = np_now(m1_hat)[0, :600, :]
         m2_hat = np_now(m2_hat)[0, :600, :]

@@ -4,6 +4,7 @@ from typing import Union, Dict, Any, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.nn import Sequential, GRU, Linear
 
 from models.common_layers import CBHG
 from utils.text.symbols import phonemes
@@ -108,7 +109,7 @@ class Decoder(nn.Module):
         super().__init__()
         self.register_buffer('r', torch.tensor(1, dtype=torch.int))
         self.n_mels = n_mels
-        self.prenet = PreNet(n_mels)
+        self.prenet = PreNet(n_mels*2)
         self.attn_net = LSA(decoder_dims)
         self.attn_rnn = nn.GRUCell(decoder_dims + decoder_dims // 2, decoder_dims)
         self.rnn_input = nn.Linear(2 * decoder_dims, lstm_dims)
@@ -174,6 +175,20 @@ class Decoder(nn.Module):
         return mels, scores, hidden_states, cell_states, context_vec
 
 
+class Aligner(nn.Module):
+
+    def __init__(self, num_chars):
+        super().__init__()
+
+        self.gru = GRU(80, 256, bidirectional=True, batch_first=True)
+        self.lin = Linear(512, num_chars)
+
+    def forward(self, x):
+        x, _ = self.gru(x)
+        x = self.lin(x)
+        return x
+
+
 class Tacotron(nn.Module):
 
     def __init__(self,
@@ -198,6 +213,10 @@ class Tacotron(nn.Module):
         self.encoder_proj = nn.Linear(decoder_dims, decoder_dims, bias=False)
         self.decoder = Decoder(n_mels, decoder_dims, lstm_dims)
         self.postnet = CBHG(postnet_k, n_mels, postnet_dims, [256, 80], num_highways)
+        self.aligner = Aligner(num_chars)
+        self.embedding = nn.Embedding(num_chars, embedding_dim=n_mels)
+        self.num_chars = num_chars
+
         self.post_proj = nn.Linear(postnet_dims * 2, n_mels, bias=False)
 
         self.init_model()
@@ -219,7 +238,21 @@ class Tacotron(nn.Module):
         if self.training:
             self.step += 1
 
-        batch_size, _, steps  = m.size()
+        ctc_out = self.aligner(m.transpose(1, 2))
+        ctc_out = ctc_out[:, :, 1:].softmax(-1)
+        emb_range = torch.arange(0, self.num_chars-1, device=device).long()
+        emb_range = self.embedding(emb_range)
+        m_in = m.transpose(1, 2)
+        batch, time, vdim = m_in.size()
+        ctc_query = torch.zeros((batch, time, 80), device=device)
+        for t in range(m_in.size(1)):
+            v = ctc_out[:, t, :][:, :, None]
+            v = v * emb_range[None, :, :]
+            v = torch.sum(v, dim=1)
+            ctc_query[:, t, :] = v
+
+        ctc_query = ctc_query.transpose(1, 2)
+        batch_size, _, steps = m.size()
 
         # Initialise all hidden states and pack into tuple
         attn_hidden = torch.zeros(batch_size, self.decoder_dims, device=device)
@@ -249,6 +282,9 @@ class Tacotron(nn.Module):
         # Run the decoder loop
         for t in range(0, steps, self.r):
             prenet_in = m[:, :, t - 1] if t > 0 else go_frame
+            query_in = ctc_query[:, :, t - 1] if t > 0 else go_frame
+            prenet_in = torch.cat([prenet_in, query_in], dim=-1)
+
             mel_frames, scores, hidden_states, cell_states, context_vec = \
                 self.decoder(encoder_seq, encoder_seq_proj, prenet_in,
                              hidden_states, cell_states, context_vec, t)
@@ -267,7 +303,7 @@ class Tacotron(nn.Module):
         attn_scores = torch.cat(attn_scores, 1)
         # attn_scores = attn_scores.cpu().data.numpy()
 
-        return mel_outputs, linear, attn_scores
+        return mel_outputs, linear, attn_scores, ctc_out
 
     def generate(self, x: torch.tensor, steps=2000) -> Tuple[torch.tensor, torch.tensor, torch.tensor]:
         self.eval()
