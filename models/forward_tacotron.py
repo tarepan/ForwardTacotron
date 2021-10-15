@@ -22,7 +22,7 @@ class SeriesPredictor(nn.Module):
             BatchNormConv(conv_dims, conv_dims, 5, relu=True),
         ])
         self.rnn = nn.GRU(conv_dims, rnn_dims, batch_first=True, bidirectional=True)
-        self.lin = nn.Linear(2 * rnn_dims, 1)
+        self.lin = nn.Linear(2 * rnn_dims, 3)
         self.dropout = dropout
 
     def forward(self,
@@ -93,16 +93,6 @@ class ForwardTacotron(nn.Module):
                                         conv_dims=durpred_conv_dims,
                                         rnn_dims=durpred_rnn_dims,
                                         dropout=durpred_dropout)
-        self.pitch_pred = SeriesPredictor(num_chars=num_chars,
-                                          emb_dim=series_embed_dims,
-                                          conv_dims=pitch_conv_dims,
-                                          rnn_dims=pitch_rnn_dims,
-                                          dropout=pitch_dropout)
-        self.energy_pred = SeriesPredictor(num_chars=num_chars,
-                                           emb_dim=series_embed_dims,
-                                           conv_dims=energy_conv_dims,
-                                           rnn_dims=energy_rnn_dims,
-                                           dropout=energy_dropout)
         self.prenet = CBHG(K=prenet_k,
                            in_channels=embed_dims,
                            channels=prenet_dims,
@@ -142,9 +132,10 @@ class ForwardTacotron(nn.Module):
         if self.training:
             self.step += 1
 
-        dur_hat = self.dur_pred(x).squeeze(-1)
-        pitch_hat = self.pitch_pred(x).transpose(1, 2)
-        energy_hat = self.energy_pred(x).transpose(1, 2)
+        durpred = self.dur_pred(x)
+        dur_hat = durpred[:, :, 0]
+        pitch_hat = durpred[:, :, 1:2].transpose(1, 2)
+        energy_hat = durpred[:, :, 2:3].transpose(1, 2)
 
         x = self.embedding(x)
         x = x.transpose(1, 2)
@@ -187,13 +178,14 @@ class ForwardTacotron(nn.Module):
                  energy_function: Callable[[torch.Tensor], torch.Tensor] = lambda x: x) -> Dict[str, torch.Tensor]:
         self.eval()
         with torch.no_grad():
-            dur_hat = self.dur_pred(x, alpha=alpha)
+            durpred = self.dur_pred(x)
+            dur_hat = durpred[:, :, 0]
             dur_hat = dur_hat.squeeze(2)
             if torch.sum(dur_hat.long()) <= 0:
                 torch.fill_(dur_hat, value=2.)
-            pitch_hat = self.pitch_pred(x).transpose(1, 2)
+            pitch_hat = durpred[:, :, 1:2].transpose(1, 2)
+            energy_hat = durpred[:, :, 2:3].transpose(1, 2)
             pitch_hat = pitch_function(pitch_hat)
-            energy_hat = self.energy_pred(x).transpose(1, 2)
             energy_hat = energy_function(energy_hat)
             return self._generate_mel(x=x, dur_hat=dur_hat,
                                       pitch_hat=pitch_hat,

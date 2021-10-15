@@ -317,7 +317,7 @@ def collate_tts(batch: List[Dict[str, Union[str, torch.tensor]]], r: int) -> Dic
 
 class BinnedLengthSampler(Sampler):
     def __init__(self, lengths, batch_size, bin_size):
-        _, self.idx = torch.sort(torch.tensor(lengths).long())
+        _, self.idx = torch.sort(-torch.tensor(lengths).long())
         self.batch_size = batch_size
         self.bin_size = bin_size
         assert self.bin_size % self.batch_size == 0
@@ -330,15 +330,15 @@ class BinnedLengthSampler(Sampler):
 
         for i in range(len(idx) // self.bin_size):
             this_bin = idx[i * self.bin_size:(i + 1) * self.bin_size]
-            random.shuffle(this_bin)
+            #random.shuffle(this_bin)
             bins += [this_bin]
 
-        random.shuffle(bins)
+        #random.shuffle(bins)
         binned_idx = np.stack(bins).reshape(-1)
 
         if len(binned_idx) < len(idx):
             last_bin = idx[len(binned_idx):]
-            random.shuffle(last_bin)
+            #random.shuffle(last_bin)
             binned_idx = np.concatenate([binned_idx, last_bin])
 
         return iter(torch.tensor(binned_idx).long())

@@ -61,7 +61,7 @@ class DSP:
         return DSP(**config['dsp'])
 
     def load_wav(self, path: Union[str, Path]) -> np.array:
-        wav, _ = librosa.load(path, sr=self.sample_rate)
+        wav, _ = librosa.load(str(path), sr=self.sample_rate)
         return wav
 
     def save_wav(self, wav: np.array, path: Union[str, Path]) -> None:
