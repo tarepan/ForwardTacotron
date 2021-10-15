@@ -180,7 +180,6 @@ class ForwardTacotron(nn.Module):
         with torch.no_grad():
             durpred = self.dur_pred(x)
             dur_hat = durpred[:, :, 0]
-            dur_hat = dur_hat.squeeze(2)
             if torch.sum(dur_hat.long()) <= 0:
                 torch.fill_(dur_hat, value=2.)
             pitch_hat = durpred[:, :, 1:2].transpose(1, 2)
