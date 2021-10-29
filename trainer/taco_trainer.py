@@ -37,11 +37,11 @@ class TacoTrainer:
         tts_schedule = self.train_cfg['schedule']
         tts_schedule = parse_schedule(tts_schedule)
         for i, session_params in enumerate(tts_schedule, 1):
-            r, lr, max_step, bs = session_params
+            r, lr, max_step, bs, max_mel_len = session_params
             if model.get_step() < max_step:
                 train_set, val_set = get_tts_datasets(
                     path=self.paths.data, batch_size=bs, r=r, model_type='tacotron',
-                    max_mel_len=self.train_cfg['max_mel_len'], filter_attention=False
+                    max_mel_len=max_mel_len, filter_attention=False
                 )
                 session = TTSSession(
                     index=i, r=r, lr=lr, max_step=max_step,

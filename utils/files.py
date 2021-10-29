@@ -34,9 +34,9 @@ def parse_schedule(schedule: List[str]) -> List[Tuple]:
     out = []
     for line in schedule:
         split = line.split(',')
-        if len(split) == 4:
-            r, lr, step, bs = split
-            out.append((int(r), float(lr), int(step), int(bs)))
+        if len(split) == 5:
+            r, lr, step, bs, ml = split
+            out.append((int(r), float(lr), int(step), int(bs), int(ml)))
         else:
             lr, step, bs = split
             out.append((float(lr), int(step), int(bs)))
