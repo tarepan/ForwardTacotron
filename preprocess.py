@@ -49,17 +49,37 @@ class Preprocessor:
         return wav_id, m.shape[-1], text
 
     def _convert_file(self, path: Path) -> Tuple[np.array, np.array, np.array]:
+        """
+        Convert a file into features.
+
+        Args:
+            path: Path of target audio file
+        Returns:
+            mel-spec: log-scale mel-spectrogram by librosa's `stft` + `melspectrogram(S)` + `np.log`
+            quantized waveform:
+            pitch: Frame-level pitch series by WORLD's `dio` (not with stonemask)
+        """
         y = self.dsp.load_wav(path)
+
+        # Trimming
         if self.dsp.trim_long_silences:
            y = self.dsp.trim_long_silences(y)
         if self.dsp.should_trim_start_end_silence:
            y = self.dsp.trim_silence(y)
+
+        # Scaling
         peak = np.abs(y).max()
         if self.dsp.should_peak_norm or peak > 1.0:
             y /= peak
+
+        # Feature1: Mel-spectrogram
         mel = self.dsp.wav_to_mel(y)
+
+        # Feature2: Pitch series (frame-level) by WORLD
         pitch, _ = pw.dio(y.astype(np.float64), self.dsp.sample_rate,
                           frame_period=self.dsp.hop_length / self.dsp.sample_rate * 1000)
+
+        # Feature3: Quantized waveform
         if self.dsp.voc_mode == 'RAW':
             quant = self.dsp.encode_mu_law(y, mu=2**self.dsp.bits) \
                 if self.dsp.mu_law else self.dsp.float_2_label(y, bits=self.dsp.bits)
@@ -67,6 +87,7 @@ class Preprocessor:
             quant = self.dsp.float_2_label(y, bits=16)
         else:
             raise ValueError(f'Unexpected voc mode {self.dsp.voc_mode}, should be either RAW or MOL.')
+
         return mel.astype(np.float32), quant.astype(np.int64), pitch.astype(np.float32)
 
 
