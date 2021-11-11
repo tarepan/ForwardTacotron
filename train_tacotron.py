@@ -1,7 +1,7 @@
 import argparse
 import itertools
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, List
 
 import torch
 from torch import optim
@@ -34,38 +34,67 @@ def normalize_values(phoneme_val):
 
 # adapted from https://github.com/NVIDIA/DeepLearningExamples/blob/
 # 0b27e359a5869cd23294c1707c92f989c0bf201e/PyTorch/SpeechSynthesis/FastPitch/extract_mels.py
-def extract_pitch_energy(save_path_pitch: Path,
-                         save_path_energy: Path,
-                         pitch_max_freq: float) -> Tuple[float, float]:
+def extract_pitch_energy(
+        save_path_pitch: Path,
+        save_path_energy: Path,
+         pitch_max_freq: float
+    ) -> Tuple[float, float]:
+    """
+    Extract/align pitch and energy series in utterances.
+
+    Pitch alignment: Phoneme-wide average of already-extracted pitch series
+    Energy extraction: Phoneme-wide average of spectrum L2-norm
+    """
+
     train_data = unpickle_binary(paths.data / 'train_dataset.pkl')
     val_data = unpickle_binary(paths.data / 'val_dataset.pkl')
     all_data = train_data + val_data
+
+    # Phoneme pitch container, each item is phoneme-level pitch series of a utterance.
     phoneme_pitches = []
-    phoneme_energies = []
+    # Phoneme energy container, each item is phoneme-level energy series of a utterance.
+    phoneme_energies: List[Tuple[str, float]] = []
     for prog_idx, (item_id, mel_len) in enumerate(all_data, 1):
+        # Extract/align from a utterance
         dur = np.load(paths.alg / f'{item_id}.npy')
         mel = np.load(paths.mel / f'{item_id}.npy')
-        energy = np.linalg.norm(np.exp(mel), axis=0, ord=2)
-        assert np.sum(dur) == mel_len
+
+        # Already extracted pitch
         pitch = np.load(paths.raw_pitch / f'{item_id}.npy')
+
+        # Energy extraction: spectrum L2-norm
+        #   Use `exp`, so the origin is log-mel-spec?
+        #   (Freq, Time) => (Time,)
+        energy = np.linalg.norm(np.exp(mel), axis=0, ord=2)
+
+        # Time scaling: Spectrogram frame level => phoneme level by averaging over phoneme duration
+        assert np.sum(dur) == mel_len
         durs_cum = np.cumsum(np.pad(dur, (1, 0)))
+        # Phoneme level container
         pitch_char = np.zeros((dur.shape[0],), dtype=np.float32)
         energy_char = np.zeros((dur.shape[0],), dtype=np.float32)
         for idx, a, b in zip(range(mel_len), durs_cum[:-1], durs_cum[1:]):
+            # Pitch
             values = pitch[a:b][np.where(pitch[a:b] != 0.0)[0]]
             values = values[np.where(values < pitch_max_freq)[0]]
             pitch_char[idx] = np.mean(values) if len(values) > 0 else 0.0
+            # Energy
             energy_values = energy[a:b]
             energy_char[idx] = np.mean(energy_values)if len(energy_values) > 0 else 0.0
+        # Store in the container
         phoneme_pitches.append((item_id, pitch_char))
         phoneme_energies.append((item_id, energy_char))
+
+        # Logging
         bar = progbar(prog_idx, len(all_data))
         msg = f'{bar} {prog_idx}/{len(all_data)} Files '
         stream(msg)
 
+    # Save energies
     for item_id, phoneme_energy in phoneme_energies:
         np.save(str(save_path_energy / f'{item_id}.npy'), phoneme_energy, allow_pickle=False)
 
+    # Save normalized pitches
     mean, var = normalize_values(phoneme_pitches)
     for item_id, phoneme_pitch in phoneme_pitches:
         np.save(str(save_path_pitch / f'{item_id}.npy'), phoneme_pitch, allow_pickle=False)
@@ -91,6 +120,7 @@ def create_gta_features(model: Tacotron,
         for j, item_id in enumerate(batch['item_id']):
             mel = gta[j][:, :batch['mel_len'][j]]
             np.save(str(save_path/f'{item_id}.npy'), mel, allow_pickle=False)
+        # Logging
         bar = progbar(i, iters)
         msg = f'{bar} {i}/{iters} Batches '
         stream(msg)
@@ -101,6 +131,9 @@ def create_align_features(model: Tacotron,
                           val_set: DataLoader,
                           paths: Paths,
                           pitch_max_freq: float) -> None:
+    """
+    
+    """
     assert model.r == 1, f'Reduction factor of tacotron must be 1 for creating alignment features! ' \
                          f'Reduction factor was: {model.r}'
     model.eval()
@@ -129,9 +162,12 @@ def create_align_features(model: Tacotron,
         if np.sum(durs) != mel_len:
             print(f'WARNINNG: Sum of durations did not match mel length for item {item_id}!')
         np.save(str(paths.alg / f'{item_id}.npy'), durs, allow_pickle=False)
+
+        # Logging
         bar = progbar(i, iters)
         msg = f'{bar} {i}/{iters} Files '
         stream(msg)
+
     pickle_binary(att_score_dict, paths.data / 'att_score_dict.pkl')
     print('Extracting Pitch Values...')
     extract_pitch_energy(save_path_pitch=paths.phon_pitch,
